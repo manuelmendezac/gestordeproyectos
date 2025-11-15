@@ -248,6 +248,25 @@
         </div>
     </div>
 
+    <!-- Modal de Nueva Tarea -->
+    <div id="new-task-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center z-40 hidden">
+        <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-md mx-auto w-full">
+            <h3 class="text-xl font-semibold text-white mb-4">✅ Crear Nueva Tarea</h3>
+            <div class="mb-4">
+                <label class="block text-gray-300 mb-2">Descripción de la Tarea</label>
+                <input id="new-task-text" type="text" class="w-full p-2 rounded-md bg-gray-700 text-gray-100 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Ej: Implementar login con Google OAuth">
+            </div>
+            <div class="flex justify-end space-x-3 mt-4">
+                <button id="cancel-new-task-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-5 rounded-lg">
+                    Cancelar
+                </button>
+                <button id="create-task-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg">
+                    Crear Tarea
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Script de Firebase -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -326,9 +345,15 @@
         const newTaskgroupTitleInput = document.getElementById('new-taskgroup-title');
         const createTaskgroupBtn = document.getElementById('create-taskgroup-btn');
         const cancelNewTaskgroupBtn = document.getElementById('cancel-new-taskgroup-btn');
+        const newTaskModal = document.getElementById('new-task-modal');
+        const newTaskTextInput = document.getElementById('new-task-text');
+        const createTaskBtn = document.getElementById('create-task-btn');
+        const cancelNewTaskBtn = document.getElementById('cancel-new-task-btn');
         let currentEditingItem = null;
         let currentEditingPriorityItemIndex = null;
         let currentWorkspaceIdForTaskgroup = null; // Para saber en qué espacio agregar el grupo
+        let currentSectionIdForTask = null; // Para saber en qué espacio agregar la tarea
+        let currentSubsectionIdForTask = null; // Para saber en qué grupo agregar la tarea
 
         // --- Datos Iniciales (Plantilla para nuevos proyectos) ---
         const initialProjectData = [
@@ -1373,6 +1398,65 @@
             showMessage(`Grupo de Tareas "${title}" creado exitosamente`);
         }
 
+        // --- Crear nueva Tarea ---
+        async function createNewTask() {
+            if (!currentSectionIdForTask || !currentSubsectionIdForTask) {
+                showMessage("Error: No se especificó el Grupo de Tareas");
+                return;
+            }
+            
+            const text = newTaskTextInput.value.trim();
+            if (!text) {
+                showMessage("Por favor, ingresa una descripción para la tarea");
+                return;
+            }
+            
+            // Encontrar el espacio de trabajo y el grupo
+            const workspace = projectData.find(s => s.id === currentSectionIdForTask);
+            if (!workspace) {
+                showMessage("Error: Espacio de Trabajo no encontrado");
+                return;
+            }
+            
+            const taskgroup = workspace.tasks.find(t => t.id === currentSubsectionIdForTask);
+            if (!taskgroup) {
+                showMessage("Error: Grupo de Tareas no encontrado");
+                return;
+            }
+            
+            // Generar ID único para la tarea
+            const taskId = `${currentSubsectionIdForTask}.${taskgroup.items.length + 1}`;
+            
+            // Crear nueva tarea
+            const newTask = {
+                id: taskId,
+                text: text,
+                status: '❌', // Por defecto no iniciado
+                note: ''
+            };
+            
+            taskgroup.items.push(newTask);
+            await saveCoreProjectData();
+            
+            // Guardar los IDs antes de limpiarlos
+            const sectionId = currentSectionIdForTask;
+            const subsectionId = currentSubsectionIdForTask;
+            
+            // Cerrar modal y limpiar
+            newTaskModal.classList.add('hidden');
+            newTaskTextInput.value = '';
+            currentSectionIdForTask = null;
+            currentSubsectionIdForTask = null;
+            
+            // Asegurar que el espacio y grupo estén abiertos
+            openAccordions.add(sectionId);
+            openAccordions.add(subsectionId);
+            
+            // Re-renderizar
+            renderProject();
+            showMessage(`Tarea "${text}" creada exitosamente`);
+        }
+
         // --- Inicializar sistema de proyectos ---
         function setupFirestoreListener() {
             // Cargar lista de proyectos
@@ -1500,6 +1584,20 @@
                         noteIndicator.textContent = '💬';
                         subsectionTitle.appendChild(noteIndicator);
                     }
+                    
+                    // Botón para agregar Tarea dentro de este Grupo
+                    const addTaskBtn = document.createElement('button');
+                    addTaskBtn.className = 'bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded text-xs ml-2';
+                    addTaskBtn.textContent = '+ Tarea';
+                    addTaskBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        currentSectionIdForTask = section.id;
+                        currentSubsectionIdForTask = subsection.id;
+                        newTaskModal.classList.remove('hidden');
+                        newTaskTextInput.focus();
+                    };
+                    subsectionTitle.appendChild(addTaskBtn);
+                    
                     subsectionEl.appendChild(subsectionTitle);
 
                     const itemsList = document.createElement('ul');
@@ -1945,6 +2043,22 @@
         newTaskgroupTitleInput.onkeypress = (e) => {
             if (e.key === 'Enter') {
                 createNewTaskgroup();
+            }
+        };
+
+        // --- Event Listeners para Tareas ---
+        createTaskBtn.onclick = createNewTask;
+        cancelNewTaskBtn.onclick = () => {
+            newTaskModal.classList.add('hidden');
+            newTaskTextInput.value = '';
+            currentSectionIdForTask = null;
+            currentSubsectionIdForTask = null;
+        };
+
+        // Permitir crear tarea con Enter
+        newTaskTextInput.onkeypress = (e) => {
+            if (e.key === 'Enter') {
+                createNewTask();
             }
         };
 

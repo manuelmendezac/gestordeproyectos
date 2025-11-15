@@ -123,6 +123,13 @@
             <div id="project-container" class="space-y-6">
                 <!-- El contenido se generará aquí -->
             </div>
+            
+            <!-- Botón para agregar Espacio de Trabajo -->
+            <div class="container mx-auto p-4 md:p-8 max-w-7xl mt-4">
+                <button id="add-workspace-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg text-sm">
+                    + Agregar Espacio de Trabajo
+                </button>
+            </div>
         </div>
 
         <!-- Sección de Tareas Prioritarias -->
@@ -203,6 +210,44 @@
         </div>
     </div>
 
+    <!-- Modal de Nuevo Espacio de Trabajo -->
+    <div id="new-workspace-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center z-40 hidden">
+        <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-md mx-auto w-full">
+            <h3 class="text-xl font-semibold text-white mb-4">🟣 Crear Nuevo Espacio de Trabajo</h3>
+            <div class="mb-4">
+                <label class="block text-gray-300 mb-2">Título del Espacio de Trabajo</label>
+                <input id="new-workspace-title" type="text" class="w-full p-2 rounded-md bg-gray-700 text-gray-100 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500" placeholder="Ej: 1. INFRAESTRUCTURA BASE">
+            </div>
+            <div class="flex justify-end space-x-3 mt-4">
+                <button id="cancel-new-workspace-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-5 rounded-lg">
+                    Cancelar
+                </button>
+                <button id="create-workspace-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-5 rounded-lg">
+                    Crear Espacio
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Nuevo Grupo de Tareas -->
+    <div id="new-taskgroup-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center z-40 hidden">
+        <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-md mx-auto w-full">
+            <h3 class="text-xl font-semibold text-white mb-4">🔵 Crear Nuevo Grupo de Tareas</h3>
+            <div class="mb-4">
+                <label class="block text-gray-300 mb-2">Título del Grupo de Tareas</label>
+                <input id="new-taskgroup-title" type="text" class="w-full p-2 rounded-md bg-gray-700 text-gray-100 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ej: 1.1 Autenticación y Usuarios">
+            </div>
+            <div class="flex justify-end space-x-3 mt-4">
+                <button id="cancel-new-taskgroup-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-5 rounded-lg">
+                    Cancelar
+                </button>
+                <button id="create-taskgroup-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 rounded-lg">
+                    Crear Grupo
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Script de Firebase -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -261,6 +306,7 @@
         const projectSelector = document.getElementById('project-selector');
         const newProjectBtn = document.getElementById('new-project-btn');
         const deleteProjectBtn = document.getElementById('delete-project-btn');
+        const addWorkspaceBtn = document.getElementById('add-workspace-btn');
 
         // --- Elementos de Modales ---
         const noteModal = document.getElementById('note-modal');
@@ -272,8 +318,17 @@
         const newProjectDescriptionInput = document.getElementById('new-project-description');
         const createProjectBtn = document.getElementById('create-project-btn');
         const cancelNewProjectBtn = document.getElementById('cancel-new-project-btn');
+        const newWorkspaceModal = document.getElementById('new-workspace-modal');
+        const newWorkspaceTitleInput = document.getElementById('new-workspace-title');
+        const createWorkspaceBtn = document.getElementById('create-workspace-btn');
+        const cancelNewWorkspaceBtn = document.getElementById('cancel-new-workspace-btn');
+        const newTaskgroupModal = document.getElementById('new-taskgroup-modal');
+        const newTaskgroupTitleInput = document.getElementById('new-taskgroup-title');
+        const createTaskgroupBtn = document.getElementById('create-taskgroup-btn');
+        const cancelNewTaskgroupBtn = document.getElementById('cancel-new-taskgroup-btn');
         let currentEditingItem = null;
         let currentEditingPriorityItemIndex = null;
+        let currentWorkspaceIdForTaskgroup = null; // Para saber en qué espacio agregar el grupo
 
         // --- Datos Iniciales (Plantilla para nuevos proyectos) ---
         const initialProjectData = [
@@ -1234,6 +1289,90 @@
             }
         }
 
+        // --- Crear nuevo Espacio de Trabajo ---
+        async function createNewWorkspace() {
+            if (!currentProjectId) {
+                showMessage("Por favor, selecciona un proyecto primero");
+                return;
+            }
+            
+            const title = newWorkspaceTitleInput.value.trim();
+            if (!title) {
+                showMessage("Por favor, ingresa un título para el Espacio de Trabajo");
+                return;
+            }
+            
+            // Generar ID único
+            const workspaceId = String(projectData.length + 1);
+            
+            // Crear nuevo espacio de trabajo
+            const newWorkspace = {
+                id: workspaceId,
+                title: title,
+                tasks: []
+            };
+            
+            projectData.push(newWorkspace);
+            await saveCoreProjectData();
+            
+            // Cerrar modal y limpiar
+            newWorkspaceModal.classList.add('hidden');
+            newWorkspaceTitleInput.value = '';
+            
+            // Re-renderizar
+            renderProject();
+            showMessage(`Espacio de Trabajo "${title}" creado exitosamente`);
+        }
+
+        // --- Crear nuevo Grupo de Tareas ---
+        async function createNewTaskgroup() {
+            if (!currentWorkspaceIdForTaskgroup) {
+                showMessage("Error: No se especificó el Espacio de Trabajo");
+                return;
+            }
+            
+            const title = newTaskgroupTitleInput.value.trim();
+            if (!title) {
+                showMessage("Por favor, ingresa un título para el Grupo de Tareas");
+                return;
+            }
+            
+            // Encontrar el espacio de trabajo
+            const workspace = projectData.find(s => s.id === currentWorkspaceIdForTaskgroup);
+            if (!workspace) {
+                showMessage("Error: Espacio de Trabajo no encontrado");
+                return;
+            }
+            
+            // Generar ID único para el grupo
+            const taskgroupId = `${currentWorkspaceIdForTaskgroup}.${workspace.tasks.length + 1}`;
+            
+            // Crear nuevo grupo de tareas
+            const newTaskgroup = {
+                id: taskgroupId,
+                title: title,
+                items: []
+            };
+            
+            workspace.tasks.push(newTaskgroup);
+            await saveCoreProjectData();
+            
+            // Guardar el ID del workspace antes de limpiarlo
+            const workspaceId = currentWorkspaceIdForTaskgroup;
+            
+            // Cerrar modal y limpiar
+            newTaskgroupModal.classList.add('hidden');
+            newTaskgroupTitleInput.value = '';
+            currentWorkspaceIdForTaskgroup = null;
+            
+            // Asegurar que el espacio esté abierto
+            openAccordions.add(workspaceId);
+            
+            // Re-renderizar
+            renderProject();
+            showMessage(`Grupo de Tareas "${title}" creado exitosamente`);
+        }
+
         // --- Inicializar sistema de proyectos ---
         function setupFirestoreListener() {
             // Cargar lista de proyectos
@@ -1299,6 +1438,18 @@
                     noteIndicator.textContent = '💬';
                     sectionHeader.appendChild(noteIndicator);
                 }
+                // Botón para agregar Grupo de Tareas dentro de este Espacio
+                const addTaskgroupBtn = document.createElement('button');
+                addTaskgroupBtn.className = 'bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded text-xs ml-2';
+                addTaskgroupBtn.textContent = '+ Grupo';
+                addTaskgroupBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    currentWorkspaceIdForTaskgroup = section.id;
+                    newTaskgroupModal.classList.remove('hidden');
+                    newTaskgroupTitleInput.focus();
+                };
+                sectionHeader.appendChild(addTaskgroupBtn);
+                
                 sectionEl.appendChild(sectionHeader);
 
                 const tasksContainer = document.createElement('div');
@@ -1756,6 +1907,44 @@
         newProjectNameInput.onkeypress = (e) => {
             if (e.key === 'Enter') {
                 createNewProject();
+            }
+        };
+
+        // --- Event Listeners para Espacios de Trabajo ---
+        addWorkspaceBtn.onclick = () => {
+            if (!currentProjectId) {
+                showMessage("Por favor, selecciona un proyecto primero");
+                return;
+            }
+            newWorkspaceModal.classList.remove('hidden');
+            newWorkspaceTitleInput.focus();
+        };
+
+        createWorkspaceBtn.onclick = createNewWorkspace;
+        cancelNewWorkspaceBtn.onclick = () => {
+            newWorkspaceModal.classList.add('hidden');
+            newWorkspaceTitleInput.value = '';
+        };
+
+        // Permitir crear workspace con Enter
+        newWorkspaceTitleInput.onkeypress = (e) => {
+            if (e.key === 'Enter') {
+                createNewWorkspace();
+            }
+        };
+
+        // --- Event Listeners para Grupos de Tareas ---
+        createTaskgroupBtn.onclick = createNewTaskgroup;
+        cancelNewTaskgroupBtn.onclick = () => {
+            newTaskgroupModal.classList.add('hidden');
+            newTaskgroupTitleInput.value = '';
+            currentWorkspaceIdForTaskgroup = null;
+        };
+
+        // Permitir crear grupo con Enter
+        newTaskgroupTitleInput.onkeypress = (e) => {
+            if (e.key === 'Enter') {
+                createNewTaskgroup();
             }
         };
 

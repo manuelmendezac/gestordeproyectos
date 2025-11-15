@@ -1247,30 +1247,37 @@
                     const creatorEmail = data.createdBy || null;
                     const invitedEmails = data.invitedUsers || [];
                     
+                    // MIGRACIÓN: Si el proyecto no tiene dueño, el usuario actual puede verlo y convertirse en dueño
+                    // Esto permite que proyectos antiguos sean accesibles y migrados automáticamente
+                    const hasNoOwner = !creatorEmail;
+                    const isCurrentUserOwner = userEmail && userEmail === creatorEmail;
+                    const isCurrentUserInvited = userEmail && invitedEmails.includes(userEmail);
+                    
                     // Filtrar proyectos según permisos
                     if (isPrivate) {
-                        // Proyectos privados: SOLO mostrar si es el creador o está invitado
-                        if (userEmail && (userEmail === creatorEmail || invitedEmails.includes(userEmail))) {
+                        // Proyectos privados: SOLO mostrar si es el creador, está invitado, o no tiene dueño (migración)
+                        if (userEmail && (hasNoOwner || isCurrentUserOwner || isCurrentUserInvited)) {
                             projects.push({
                                 id: docSnap.id,
                                 name: data.projectName || docSnap.id,
                                 description: data.description || '',
                                 isPrivate: true,
                                 createdBy: creatorEmail,
-                                isOwner: userEmail === creatorEmail,
-                                isInvited: invitedEmails.includes(userEmail) && userEmail !== creatorEmail
+                                isOwner: hasNoOwner || isCurrentUserOwner, // Si no tiene dueño, el usuario actual será dueño
+                                isInvited: isCurrentUserInvited && !isCurrentUserOwner
                             });
                         }
                         // Si no es el creador ni está invitado, NO mostrar el proyecto privado
                     } else {
                         // Proyectos públicos: todos los usuarios autenticados pueden verlos
+                        // Si no tiene dueño, el usuario actual puede convertirse en dueño
                         projects.push({
                             id: docSnap.id,
                             name: data.projectName || docSnap.id,
                             description: data.description || '',
                             isPrivate: false,
                             createdBy: creatorEmail,
-                            isOwner: userEmail === creatorEmail,
+                            isOwner: hasNoOwner || isCurrentUserOwner, // Si no tiene dueño, el usuario actual será dueño
                             isInvited: false
                         });
                     }
@@ -1386,12 +1393,54 @@
                         // Verificar permisos
                         const user = auth.currentUser;
                         const userEmail = user?.email || null;
-                        const isOwner = userEmail && userEmail === data.createdBy;
-                        const isInvited = userEmail && (data.invitedUsers?.includes(userEmail) || false);
-                        const isPrivate = data.isPrivate === true;
+                        
+                        // MIGRACIÓN: Si el proyecto no tiene createdBy, asignarlo al usuario actual
+                        let needsUpdate = false;
+                        const updateData = {};
+                        
+                        if (!data.createdBy && userEmail) {
+                            // Proyecto antiguo sin dueño - asignar al usuario actual
+                            updateData.createdBy = userEmail;
+                            needsUpdate = true;
+                            console.log(`Migración: Asignando proyecto ${projectId} al usuario ${userEmail}`);
+                        }
+                        
+                        // MIGRACIÓN: Si el proyecto no tiene isPrivate, establecerlo como público por defecto
+                        if (data.isPrivate === undefined) {
+                            updateData.isPrivate = false; // Público por defecto para proyectos antiguos
+                            needsUpdate = true;
+                            console.log(`Migración: Estableciendo isPrivate=false para proyecto ${projectId}`);
+                        }
+                        
+                        // MIGRACIÓN: Si el proyecto no tiene invitedUsers, inicializar array vacío
+                        if (!data.invitedUsers) {
+                            updateData.invitedUsers = [];
+                            needsUpdate = true;
+                        }
+                        
+                        // Aplicar migración si es necesaria
+                        if (needsUpdate) {
+                            try {
+                                await updateDoc(projectDocRef, {
+                                    ...updateData,
+                                    updatedAt: new Date().toISOString()
+                                });
+                                console.log(`Migración completada para proyecto ${projectId}`);
+                            } catch (error) {
+                                console.error("Error en migración de proyecto:", error);
+                            }
+                        }
+                        
+                        // Usar datos actualizados después de la migración
+                        const finalCreatedBy = updateData.createdBy || data.createdBy;
+                        const finalIsPrivate = updateData.isPrivate !== undefined ? updateData.isPrivate : (data.isPrivate === true);
+                        const finalInvitedUsers = updateData.invitedUsers || data.invitedUsers || [];
+                        
+                        const isOwner = userEmail && userEmail === finalCreatedBy;
+                        const isInvited = userEmail && finalInvitedUsers.includes(userEmail);
                         
                         // Verificar acceso al proyecto
-                        if (isPrivate && !isOwner && !isInvited) {
+                        if (finalIsPrivate && !isOwner && !isInvited) {
                             // Usuario no tiene acceso a este proyecto privado
                             showMessage('⚠️ No tienes acceso a este proyecto privado.');
                             // Cargar el primer proyecto disponible en su lugar
@@ -1413,9 +1462,10 @@
                         
                         // Actualizar título del proyecto en el selector si existe
                         const option = projectSelector.querySelector(`option[value="${projectId}"]`);
-                        if (option && data.projectName) {
-                            const privacyIcon = isPrivate ? '🔒 ' : '';
-                            option.textContent = `${privacyIcon}${data.projectName}`;
+                        if (option) {
+                            const projectName = data.projectName || projectId;
+                            const privacyIcon = finalIsPrivate ? '🔒 ' : '';
+                            option.textContent = `${privacyIcon}${projectName}`;
                         }
                         
                         console.log(`Datos cargados desde Firestore para el proyecto: ${projectId}`);

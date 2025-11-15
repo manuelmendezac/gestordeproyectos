@@ -319,7 +319,9 @@
             </div>
             <div class="mb-4">
                 <label class="block text-gray-300 mb-2">Responsable (Email)</label>
-                <input id="new-task-assignedTo" type="email" class="w-full p-2 rounded-md bg-gray-700 text-gray-100 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="email@ejemplo.com (opcional)">
+                <select id="new-task-assignedTo" class="w-full p-2 rounded-md bg-gray-700 text-gray-100 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500">
+                    <option value="">Sin asignar (opcional)</option>
+                </select>
             </div>
             <div class="flex justify-end space-x-3 mt-4">
                 <button id="cancel-new-task-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-5 rounded-lg">
@@ -357,7 +359,9 @@
             </div>
             <div class="mb-4">
                 <label class="block text-gray-300 mb-2">Responsable (Email)</label>
-                <input id="edit-task-assignedTo" type="email" class="w-full p-2 rounded-md bg-gray-700 text-gray-100 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="email@ejemplo.com (opcional)">
+                <select id="edit-task-assignedTo" class="w-full p-2 rounded-md bg-gray-700 text-gray-100 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500">
+                    <option value="">Sin asignar (opcional)</option>
+                </select>
             </div>
             <div class="flex justify-end space-x-3 mt-4">
                 <button id="cancel-edit-task-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-5 rounded-lg">
@@ -489,7 +493,8 @@
         let projectData = []; 
         let priorityTasks = []; 
         let openAccordions = new Set(); 
-        let savedScrollY = 0; 
+        let savedScrollY = 0;
+        let currentProjectEmails = []; // Lista de correos disponibles para el proyecto actual (createdBy + invitedUsers) 
         
         const loadingSpinner = document.getElementById('loading-spinner');
         const loadingText = document.getElementById('loading-text');
@@ -1545,6 +1550,19 @@
                         const finalIsPrivate = updateData.isPrivate !== undefined ? updateData.isPrivate : (data.isPrivate === true);
                         const finalInvitedUsers = updateData.invitedUsers || data.invitedUsers || [];
                         
+                        // Actualizar lista de correos disponibles para este proyecto
+                        currentProjectEmails = [];
+                        if (finalCreatedBy) {
+                            currentProjectEmails.push(finalCreatedBy);
+                        }
+                        if (finalInvitedUsers && finalInvitedUsers.length > 0) {
+                            finalInvitedUsers.forEach(email => {
+                                if (email && !currentProjectEmails.includes(email)) {
+                                    currentProjectEmails.push(email);
+                                }
+                            });
+                        }
+                        
                         const isOwner = userEmail && userEmail === finalCreatedBy;
                         const isInvited = userEmail && finalInvitedUsers.includes(userEmail);
                         
@@ -1841,7 +1859,7 @@
                 note: '',
                 dueDate: newTaskDueDateInput.value || null,
                 priority: newTaskPriorityInput.value || 'media',
-                assignedTo: newTaskAssignedToInput.value.trim() || null
+                assignedTo: newTaskAssignedToInput.value || null
             };
             
             taskgroup.items.push(newTask);
@@ -1867,6 +1885,39 @@
             // Re-renderizar
             renderProject();
             showMessage(`Tarea "${text}" creada exitosamente`);
+        }
+
+        // --- Función para poblar selects de correos responsables ---
+        function populateResponsibleEmailSelects(selectElement, currentValue = '') {
+            if (!selectElement) return;
+            
+            // Guardar el valor actual
+            const savedValue = currentValue || selectElement.value;
+            
+            // Limpiar opciones existentes excepto la primera (Sin asignar)
+            selectElement.innerHTML = '<option value="">Sin asignar (opcional)</option>';
+            
+            // Agregar correos del proyecto actual
+            if (currentProjectEmails && currentProjectEmails.length > 0) {
+                currentProjectEmails.forEach(email => {
+                    if (email) {
+                        const option = document.createElement('option');
+                        option.value = email;
+                        option.textContent = email;
+                        selectElement.appendChild(option);
+                    }
+                });
+            }
+            
+            // Restaurar el valor seleccionado si existe en las opciones
+            if (savedValue) {
+                const optionExists = Array.from(selectElement.options).some(opt => opt.value === savedValue);
+                if (optionExists) {
+                    selectElement.value = savedValue;
+                }
+            } else {
+                selectElement.value = '';
+            }
         }
 
         // --- Invitar usuario a proyecto ---
@@ -1921,6 +1972,11 @@
                 await setDoc(projectRef, {
                     invitedUsers: invitedUsers
                 }, { merge: true });
+                
+                // Actualizar la lista de correos del proyecto actual
+                if (!currentProjectEmails.includes(email)) {
+                    currentProjectEmails.push(email);
+                }
                 
                 console.log("Usuario invitado:", email, "al proyecto:", currentProjectId);
                 
@@ -2079,6 +2135,8 @@
                         e.stopPropagation();
                         currentSectionIdForTask = section.id;
                         currentSubsectionIdForTask = subsection.id;
+                        // Poblar el select de correos antes de abrir el modal
+                        populateResponsibleEmailSelects(newTaskAssignedToInput);
                         newTaskModal.classList.remove('hidden');
                         newTaskTextInput.focus();
                     };
@@ -2693,7 +2751,9 @@
             editTaskTextInput.value = item.text || '';
             editTaskDueDateInput.value = item.dueDate || '';
             editTaskPriorityInput.value = item.priority || 'media';
-            editTaskAssignedToInput.value = item.assignedTo || '';
+            
+            // Poblar el select de correos con el valor actual de la tarea
+            populateResponsibleEmailSelects(editTaskAssignedToInput, item.assignedTo || '');
             
             // Mostrar el modal
             editTaskModal.classList.remove('hidden');
@@ -2740,7 +2800,7 @@
                 item.text = newText;
                 item.dueDate = editTaskDueDateInput.value || null;
                 item.priority = editTaskPriorityInput.value || 'media';
-                item.assignedTo = editTaskAssignedToInput.value.trim() || null;
+                item.assignedTo = editTaskAssignedToInput.value || null;
                 
                 // Guardar en Firestore
                 await saveCoreProjectData();

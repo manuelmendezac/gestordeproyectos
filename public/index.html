@@ -101,8 +101,14 @@
                 <!-- Primera fila: Título y Estado -->
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <h1 class="text-2xl sm:text-3xl font-bold text-white">📋 Gestor de Proyectos</h1>
-                    <div class="text-xs sm:text-sm text-gray-400">
-                        Estado: <span id="auth-status-main" class="font-semibold text-green-400">Conectado</span>
+                    <div class="flex items-center gap-2">
+                        <div class="text-xs sm:text-sm text-gray-400">
+                            Estado: <span id="auth-status-main" class="font-semibold text-green-400">Conectado</span>
+                        </div>
+                        <!-- Botón de Admin (solo visible para superadmin) -->
+                        <button id="admin-panel-btn" class="bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs px-2 py-1 rounded hidden">
+                            🔐 Admin
+                        </button>
                     </div>
                 </div>
                 
@@ -364,6 +370,50 @@
         </div>
     </div>
 
+    <!-- Panel de Administración (Solo Superadmin) -->
+    <div id="admin-panel-modal" class="fixed inset-0 bg-gray-900 bg-opacity-90 flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl max-w-6xl mx-auto w-full max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold text-red-400">🔐 Panel de Administración</h3>
+                <button id="close-admin-panel-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">
+                    ✕ Cerrar
+                </button>
+            </div>
+            
+            <!-- Estadísticas -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-gray-700 p-4 rounded-lg">
+                    <div class="text-gray-400 text-sm">Total Proyectos</div>
+                    <div id="admin-total-projects" class="text-3xl font-bold text-white">-</div>
+                </div>
+                <div class="bg-gray-700 p-4 rounded-lg">
+                    <div class="text-gray-400 text-sm">Proyectos Públicos</div>
+                    <div id="admin-public-projects" class="text-3xl font-bold text-green-400">-</div>
+                </div>
+                <div class="bg-gray-700 p-4 rounded-lg">
+                    <div class="text-gray-400 text-sm">Proyectos Privados</div>
+                    <div id="admin-private-projects" class="text-3xl font-bold text-purple-400">-</div>
+                </div>
+            </div>
+            
+            <!-- Lista de Todos los Proyectos -->
+            <div class="mb-6">
+                <h4 class="text-xl font-semibold text-white mb-3">📁 Todos los Proyectos</h4>
+                <div id="admin-projects-list" class="space-y-2">
+                    <div class="text-gray-400 text-center py-4">Cargando proyectos...</div>
+                </div>
+            </div>
+            
+            <!-- Lista de Usuarios Registrados -->
+            <div>
+                <h4 class="text-xl font-semibold text-white mb-3">👥 Usuarios Registrados</h4>
+                <div id="admin-users-list" class="space-y-2">
+                    <div class="text-gray-400 text-center py-4">Cargando usuarios...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal de Configuración del Proyecto -->
     <div id="project-settings-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center z-40 hidden p-4">
         <div class="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl max-w-md mx-auto w-full max-h-[90vh] overflow-y-auto">
@@ -455,6 +505,12 @@
         const inviteUserBtn = document.getElementById('invite-user-btn');
         const projectSettingsBtn = document.getElementById('project-settings-btn');
         const addWorkspaceBtn = document.getElementById('add-workspace-btn');
+        const adminPanelBtn = document.getElementById('admin-panel-btn');
+        const adminPanelModal = document.getElementById('admin-panel-modal');
+        const closeAdminPanelBtn = document.getElementById('close-admin-panel-btn');
+        
+        // Email del superadmin
+        const SUPERADMIN_EMAIL = 'homodeus.cith@gmail.com'; // Cambiar si es diferente
 
         // --- Elementos de Modales ---
         const noteModal = document.getElementById('note-modal');
@@ -1173,11 +1229,23 @@
                 loginContainer.classList.add('hidden');
                 mainAppContainer.classList.add('hidden');
 
-                onAuthStateChanged(auth, (user) => {
+                onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         // Usuario está logueado
                         userId = user.uid;
+                        const userEmail = user.email || null;
                         console.log("Usuario conectado:", user.displayName, userId);
+                        
+                        // Registrar usuario en Firestore para tracking
+                        await registerUserInFirestore(user);
+                        
+                        // Verificar si es superadmin
+                        const isSuperAdmin = userEmail && userEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
+                        if (isSuperAdmin) {
+                            adminPanelBtn.classList.remove('hidden');
+                        } else {
+                            adminPanelBtn.classList.add('hidden');
+                        }
                         
                         // Mostrar estado en la app principal
                         authStatusMain.textContent = `Conectado: ${user.displayName}`;
@@ -2759,6 +2827,165 @@
                 showMessage(`Error al guardar: ${error.message}`);
             }
         }
+
+        // --- Funciones de Administración (Solo Superadmin) ---
+        async function registerUserInFirestore(user) {
+            try {
+                const userDocPath = `artifacts/${appId}/public/data/users/${user.uid}`;
+                const userDocRef = doc(db, userDocPath);
+                
+                const userData = {
+                    email: user.email || null,
+                    displayName: user.displayName || null,
+                    photoURL: user.photoURL || null,
+                    lastLogin: new Date().toISOString(),
+                    createdAt: null // Se establecerá solo la primera vez
+                };
+                
+                const userDocSnap = await getDoc(userDocRef);
+                if (!userDocSnap.exists()) {
+                    // Primera vez que se registra
+                    userData.createdAt = new Date().toISOString();
+                    await setDoc(userDocRef, userData);
+                    console.log("Usuario registrado en Firestore:", user.email);
+                } else {
+                    // Actualizar solo lastLogin
+                    await updateDoc(userDocRef, {
+                        lastLogin: new Date().toISOString(),
+                        email: user.email || null,
+                        displayName: user.displayName || null,
+                        photoURL: user.photoURL || null
+                    });
+                }
+            } catch (error) {
+                console.error("Error al registrar usuario en Firestore:", error);
+            }
+        }
+
+        async function loadAdminPanel() {
+            try {
+                // Cargar todos los proyectos
+                const projectsPath = `artifacts/${appId}/public/data/projects`;
+                const projectsRef = collection(db, projectsPath);
+                const projectsSnapshot = await getDocs(projectsRef);
+                
+                let totalProjects = 0;
+                let publicProjects = 0;
+                let privateProjects = 0;
+                const projectsList = [];
+                
+                projectsSnapshot.forEach((docSnap) => {
+                    const data = docSnap.data();
+                    totalProjects++;
+                    if (data.isPrivate === true) {
+                        privateProjects++;
+                    } else {
+                        publicProjects++;
+                    }
+                    
+                    projectsList.push({
+                        id: docSnap.id,
+                        name: data.projectName || docSnap.id,
+                        description: data.description || '',
+                        isPrivate: data.isPrivate === true,
+                        createdBy: data.createdBy || 'Sin dueño',
+                        createdAt: data.createdAt || 'Desconocido',
+                        invitedUsers: data.invitedUsers || []
+                    });
+                });
+                
+                // Actualizar estadísticas
+                document.getElementById('admin-total-projects').textContent = totalProjects;
+                document.getElementById('admin-public-projects').textContent = publicProjects;
+                document.getElementById('admin-private-projects').textContent = privateProjects;
+                
+                // Renderizar lista de proyectos
+                const projectsListEl = document.getElementById('admin-projects-list');
+                if (projectsList.length === 0) {
+                    projectsListEl.innerHTML = '<div class="text-gray-400 text-center py-4">No hay proyectos</div>';
+                } else {
+                    projectsListEl.innerHTML = projectsList.map(project => `
+                        <div class="bg-gray-700 p-3 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-semibold text-white">${project.isPrivate ? '🔒' : '🌐'} ${project.name}</span>
+                                    <span class="text-xs px-2 py-1 rounded ${project.isPrivate ? 'bg-purple-900 text-purple-300' : 'bg-green-900 text-green-300'}">
+                                        ${project.isPrivate ? 'Privado' : 'Público'}
+                                    </span>
+                                </div>
+                                <div class="text-xs text-gray-400 mt-1">
+                                    Creado por: ${project.createdBy} | ${project.createdAt !== 'Desconocido' ? new Date(project.createdAt).toLocaleDateString('es-ES') : 'Desconocido'}
+                                </div>
+                                ${project.description ? `<div class="text-sm text-gray-300 mt-1">${project.description}</div>` : ''}
+                                ${project.invitedUsers.length > 0 ? `<div class="text-xs text-blue-400 mt-1">👥 ${project.invitedUsers.length} invitado(s)</div>` : ''}
+                            </div>
+                        </div>
+                    `).join('');
+                }
+                
+                // Cargar todos los usuarios
+                const usersPath = `artifacts/${appId}/public/data/users`;
+                const usersRef = collection(db, usersPath);
+                const usersSnapshot = await getDocs(usersRef);
+                
+                const usersList = [];
+                usersSnapshot.forEach((docSnap) => {
+                    const data = docSnap.data();
+                    usersList.push({
+                        id: docSnap.id,
+                        email: data.email || 'Sin email',
+                        displayName: data.displayName || 'Sin nombre',
+                        createdAt: data.createdAt || null,
+                        lastLogin: data.lastLogin || null
+                    });
+                });
+                
+                // Ordenar por última conexión (más reciente primero)
+                usersList.sort((a, b) => {
+                    const aDate = a.lastLogin ? new Date(a.lastLogin) : new Date(0);
+                    const bDate = b.lastLogin ? new Date(b.lastLogin) : new Date(0);
+                    return bDate - aDate;
+                });
+                
+                // Renderizar lista de usuarios
+                const usersListEl = document.getElementById('admin-users-list');
+                if (usersList.length === 0) {
+                    usersListEl.innerHTML = '<div class="text-gray-400 text-center py-4">No hay usuarios registrados</div>';
+                } else {
+                    usersListEl.innerHTML = `
+                        <div class="text-gray-400 text-sm mb-2">Total: ${usersList.length} usuario(s)</div>
+                        ${usersList.map(user => `
+                            <div class="bg-gray-700 p-3 rounded-lg">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <div class="font-semibold text-white">${user.displayName}</div>
+                                        <div class="text-sm text-gray-400">${user.email}</div>
+                                    </div>
+                                    <div class="text-xs text-gray-500 text-right">
+                                        ${user.createdAt ? `<div>Registrado: ${new Date(user.createdAt).toLocaleDateString('es-ES')}</div>` : ''}
+                                        ${user.lastLogin ? `<div>Último acceso: ${new Date(user.lastLogin).toLocaleDateString('es-ES')} ${new Date(user.lastLogin).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</div>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    `;
+                }
+                
+            } catch (error) {
+                console.error("Error al cargar panel de administración:", error);
+                showMessage(`Error al cargar panel de admin: ${error.message}`);
+            }
+        }
+
+        // --- Event Listeners para Panel de Administración ---
+        adminPanelBtn.onclick = async () => {
+            adminPanelModal.classList.remove('hidden');
+            await loadAdminPanel();
+        };
+
+        closeAdminPanelBtn.onclick = () => {
+            adminPanelModal.classList.add('hidden');
+        };
 
         // --- Event Listeners para Edición de Tarea ---
         saveEditTaskBtn.onclick = saveEditTask;

@@ -109,6 +109,9 @@
                         <button id="new-project-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg text-sm">
                             + Nuevo Proyecto
                         </button>
+                        <button id="invite-user-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-sm hidden">
+                            👥 Invitar
+                        </button>
                         <button id="delete-project-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg text-sm hidden">
                             🗑️ Eliminar
                         </button>
@@ -199,12 +202,38 @@
                 <label class="block text-gray-300 mb-2">Descripción (opcional)</label>
                 <textarea id="new-project-description" rows="3" class="w-full p-2 rounded-md bg-gray-700 text-gray-100 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Descripción del proyecto"></textarea>
             </div>
+            <div class="mb-4">
+                <label class="flex items-center text-gray-300 cursor-pointer">
+                    <input id="new-project-isPrivate" type="checkbox" class="mr-2 w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500">
+                    <span>🔒 Proyecto Privado (solo tú y usuarios invitados pueden verlo)</span>
+                </label>
+            </div>
             <div class="flex justify-end space-x-3 mt-4">
                 <button id="cancel-new-project-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-5 rounded-lg">
                     Cancelar
                 </button>
                 <button id="create-project-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg">
                     Crear Proyecto
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Invitar Usuario -->
+    <div id="invite-user-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center z-40 hidden">
+        <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-md mx-auto w-full">
+            <h3 class="text-xl font-semibold text-white mb-4">👥 Invitar Usuario al Proyecto</h3>
+            <div class="mb-4">
+                <label class="block text-gray-300 mb-2">Email del Usuario</label>
+                <input id="invite-user-email" type="email" class="w-full p-2 rounded-md bg-gray-700 text-gray-100 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="usuario@ejemplo.com">
+                <p class="text-xs text-gray-400 mt-1">El usuario recibirá acceso cuando se registre con este email</p>
+            </div>
+            <div class="flex justify-end space-x-3 mt-4">
+                <button id="cancel-invite-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-5 rounded-lg">
+                    Cancelar
+                </button>
+                <button id="send-invite-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 rounded-lg">
+                    Enviar Invitación
                 </button>
             </div>
         </div>
@@ -250,11 +279,30 @@
 
     <!-- Modal de Nueva Tarea -->
     <div id="new-task-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center z-40 hidden">
-        <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-md mx-auto w-full">
+        <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-lg mx-auto w-full">
             <h3 class="text-xl font-semibold text-white mb-4">✅ Crear Nueva Tarea</h3>
             <div class="mb-4">
                 <label class="block text-gray-300 mb-2">Descripción de la Tarea</label>
                 <input id="new-task-text" type="text" class="w-full p-2 rounded-md bg-gray-700 text-gray-100 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Ej: Implementar login con Google OAuth">
+            </div>
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-gray-300 mb-2">Fecha Límite</label>
+                    <input id="new-task-dueDate" type="date" class="w-full p-2 rounded-md bg-gray-700 text-gray-100 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500">
+                </div>
+                <div>
+                    <label class="block text-gray-300 mb-2">Prioridad</label>
+                    <select id="new-task-priority" class="w-full p-2 rounded-md bg-gray-700 text-gray-100 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500">
+                        <option value="baja">🟢 Baja</option>
+                        <option value="media" selected>🟡 Media</option>
+                        <option value="alta">🟠 Alta</option>
+                        <option value="urgente">🔴 Urgente</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-300 mb-2">Responsable (Email)</label>
+                <input id="new-task-assignedTo" type="email" class="w-full p-2 rounded-md bg-gray-700 text-gray-100 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="email@ejemplo.com (opcional)">
             </div>
             <div class="flex justify-end space-x-3 mt-4">
                 <button id="cancel-new-task-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-5 rounded-lg">
@@ -325,6 +373,7 @@
         const projectSelector = document.getElementById('project-selector');
         const newProjectBtn = document.getElementById('new-project-btn');
         const deleteProjectBtn = document.getElementById('delete-project-btn');
+        const inviteUserBtn = document.getElementById('invite-user-btn');
         const addWorkspaceBtn = document.getElementById('add-workspace-btn');
 
         // --- Elementos de Modales ---
@@ -335,8 +384,13 @@
         const newProjectModal = document.getElementById('new-project-modal');
         const newProjectNameInput = document.getElementById('new-project-name');
         const newProjectDescriptionInput = document.getElementById('new-project-description');
+        const newProjectIsPrivateInput = document.getElementById('new-project-isPrivate');
         const createProjectBtn = document.getElementById('create-project-btn');
         const cancelNewProjectBtn = document.getElementById('cancel-new-project-btn');
+        const inviteUserModal = document.getElementById('invite-user-modal');
+        const inviteUserEmailInput = document.getElementById('invite-user-email');
+        const sendInviteBtn = document.getElementById('send-invite-btn');
+        const cancelInviteBtn = document.getElementById('cancel-invite-btn');
         const newWorkspaceModal = document.getElementById('new-workspace-modal');
         const newWorkspaceTitleInput = document.getElementById('new-workspace-title');
         const createWorkspaceBtn = document.getElementById('create-workspace-btn');
@@ -347,6 +401,9 @@
         const cancelNewTaskgroupBtn = document.getElementById('cancel-new-taskgroup-btn');
         const newTaskModal = document.getElementById('new-task-modal');
         const newTaskTextInput = document.getElementById('new-task-text');
+        const newTaskDueDateInput = document.getElementById('new-task-dueDate');
+        const newTaskPriorityInput = document.getElementById('new-task-priority');
+        const newTaskAssignedToInput = document.getElementById('new-task-assignedTo');
         const createTaskBtn = document.getElementById('create-task-btn');
         const cancelNewTaskBtn = document.getElementById('cancel-new-task-btn');
         let currentEditingItem = null;
@@ -1080,9 +1137,18 @@
         }
 
 
-        // --- Cargar lista de proyectos ---
+        // --- Cargar lista de proyectos (filtrados por permisos) ---
         async function loadProjectsList() {
             try {
+                if (!userId) {
+                    console.log("Usuario no autenticado, esperando...");
+                    return;
+                }
+                
+                // Obtener email del usuario actual
+                const user = auth.currentUser;
+                const userEmail = user?.email || null;
+                
                 const projectsPath = `artifacts/${appId}/public/data/projects`;
                 projectsListRef = collection(db, projectsPath);
                 
@@ -1091,11 +1157,34 @@
                 
                 querySnapshot.forEach((docSnap) => {
                     const data = docSnap.data();
-                    projects.push({
-                        id: docSnap.id,
-                        name: data.projectName || docSnap.id,
-                        description: data.description || ''
-                    });
+                    const isPrivate = data.isPrivate === true;
+                    const creatorEmail = data.createdBy || null;
+                    const invitedEmails = data.invitedUsers || [];
+                    
+                    // Filtrar proyectos privados
+                    if (isPrivate) {
+                        // Solo mostrar si es el creador o está invitado
+                        if (userEmail && (userEmail === creatorEmail || invitedEmails.includes(userEmail))) {
+                            projects.push({
+                                id: docSnap.id,
+                                name: data.projectName || docSnap.id,
+                                description: data.description || '',
+                                isPrivate: true,
+                                createdBy: creatorEmail,
+                                isOwner: userEmail === creatorEmail
+                            });
+                        }
+                    } else {
+                        // Proyectos públicos: todos pueden verlos
+                        projects.push({
+                            id: docSnap.id,
+                            name: data.projectName || docSnap.id,
+                            description: data.description || '',
+                            isPrivate: false,
+                            createdBy: creatorEmail,
+                            isOwner: userEmail === creatorEmail
+                        });
+                    }
                 });
                 
                 // Ordenar por nombre
@@ -1104,7 +1193,7 @@
                 // Actualizar selector
                 projectSelector.innerHTML = '';
                 if (projects.length === 0) {
-                    projectSelector.innerHTML = '<option value="">No hay proyectos</option>';
+                    projectSelector.innerHTML = '<option value="">No hay proyectos disponibles</option>';
                     // Si no hay proyectos, crear uno por defecto
                     await createDefaultProject();
                     return;
@@ -1113,7 +1202,8 @@
                 projects.forEach(project => {
                     const option = document.createElement('option');
                     option.value = project.id;
-                    option.textContent = project.name;
+                    const privacyIcon = project.isPrivate ? '🔒 ' : '';
+                    option.textContent = `${privacyIcon}${project.name}`;
                     projectSelector.appendChild(option);
                 });
                 
@@ -1137,6 +1227,9 @@
         // --- Crear proyecto por defecto (migración) ---
         async function createDefaultProject() {
             try {
+                const user = auth.currentUser;
+                const userEmail = user?.email || null;
+                
                 const defaultProjectId = 'scalexone';
                 const docPath = `artifacts/${appId}/public/data/projects/${defaultProjectId}`;
                 const defaultDocRef = doc(db, docPath);
@@ -1148,6 +1241,9 @@
                         description: "Proyecto principal de SCALEXONE",
                         content: JSON.stringify(initialProjectData),
                         priorities: JSON.stringify([]),
+                        isPrivate: false, // Proyecto público por defecto
+                        createdBy: userEmail || 'system',
+                        invitedUsers: [],
                         createdAt: new Date().toISOString()
                     });
                     console.log("Proyecto por defecto creado");
@@ -1167,9 +1263,6 @@
             currentProjectId = projectId;
             localStorage.setItem('lastSelectedProject', projectId);
             
-            // Mostrar botón de eliminar
-            deleteProjectBtn.classList.remove('hidden');
-            
             try {
                 const docPath = `artifacts/${appId}/public/data/projects/${projectId}`;
                 projectDocRef = doc(db, docPath);
@@ -1181,10 +1274,27 @@
                         projectData = JSON.parse(data.content || "[]");
                         priorityTasks = JSON.parse(data.priorities || "[]");
                         
+                        // Verificar permisos
+                        const user = auth.currentUser;
+                        const userEmail = user?.email || null;
+                        const isOwner = userEmail === data.createdBy;
+                        const isInvited = data.invitedUsers?.includes(userEmail) || false;
+                        const isPrivate = data.isPrivate === true;
+                        
+                        // Mostrar/ocultar botones según permisos
+                        if (isOwner) {
+                            deleteProjectBtn.classList.remove('hidden');
+                            inviteUserBtn.classList.remove('hidden');
+                        } else {
+                            deleteProjectBtn.classList.add('hidden');
+                            inviteUserBtn.classList.add('hidden');
+                        }
+                        
                         // Actualizar título del proyecto en el selector si existe
                         const option = projectSelector.querySelector(`option[value="${projectId}"]`);
                         if (option && data.projectName) {
-                            option.textContent = data.projectName;
+                            const privacyIcon = isPrivate ? '🔒 ' : '';
+                            option.textContent = `${privacyIcon}${data.projectName}`;
                         }
                         
                         console.log(`Datos cargados desde Firestore para el proyecto: ${projectId}`);
@@ -1220,6 +1330,15 @@
                 return;
             }
             
+            // Obtener email del usuario actual
+            const user = auth.currentUser;
+            const userEmail = user?.email || null;
+            
+            if (!userEmail) {
+                showMessage("Error: No se pudo obtener tu email. Por favor, inicia sesión nuevamente.");
+                return;
+            }
+            
             // Generar ID único (slug del nombre)
             const projectId = name.toLowerCase()
                 .replace(/[^a-z0-9]+/g, '-')
@@ -1245,21 +1364,27 @@
                     return;
                 }
                 
+                const isPrivate = newProjectIsPrivateInput.checked;
+                
                 // Crear proyecto
                 await setDoc(newProjectRef, {
                     projectName: name,
                     description: newProjectDescriptionInput.value.trim() || '',
                     content: JSON.stringify([]),
                     priorities: JSON.stringify([]),
+                    isPrivate: isPrivate,
+                    createdBy: userEmail,
+                    invitedUsers: [],
                     createdAt: new Date().toISOString()
                 });
                 
-                console.log("Proyecto creado:", projectId);
+                console.log("Proyecto creado:", projectId, "Privado:", isPrivate);
                 
                 // Cerrar modal y limpiar
                 newProjectModal.classList.add('hidden');
                 newProjectNameInput.value = '';
                 newProjectDescriptionInput.value = '';
+                newProjectIsPrivateInput.checked = false;
                 
                 // Recargar lista y seleccionar nuevo proyecto
                 await loadProjectsList();
@@ -1267,7 +1392,7 @@
                 loadProject(projectId);
                 
                 loadingSpinner.classList.add('hidden');
-                showMessage(`Proyecto "${name}" creado exitosamente`);
+                showMessage(`Proyecto "${name}" ${isPrivate ? 'privado ' : ''}creado exitosamente`);
                 
             } catch (error) {
                 console.error("Error al crear proyecto:", error);
@@ -1427,12 +1552,15 @@
             // Generar ID único para la tarea
             const taskId = `${currentSubsectionIdForTask}.${taskgroup.items.length + 1}`;
             
-            // Crear nueva tarea
+            // Crear nueva tarea con todos los campos
             const newTask = {
                 id: taskId,
                 text: text,
                 status: '❌', // Por defecto no iniciado
-                note: ''
+                note: '',
+                dueDate: newTaskDueDateInput.value || null,
+                priority: newTaskPriorityInput.value || 'media',
+                assignedTo: newTaskAssignedToInput.value.trim() || null
             };
             
             taskgroup.items.push(newTask);
@@ -1445,6 +1573,9 @@
             // Cerrar modal y limpiar
             newTaskModal.classList.add('hidden');
             newTaskTextInput.value = '';
+            newTaskDueDateInput.value = '';
+            newTaskPriorityInput.value = 'media';
+            newTaskAssignedToInput.value = '';
             currentSectionIdForTask = null;
             currentSubsectionIdForTask = null;
             
@@ -1457,16 +1588,87 @@
             showMessage(`Tarea "${text}" creada exitosamente`);
         }
 
+        // --- Invitar usuario a proyecto ---
+        async function inviteUserToProject() {
+            if (!currentProjectId) {
+                showMessage("Error: No hay proyecto seleccionado");
+                return;
+            }
+            
+            const email = inviteUserEmailInput.value.trim().toLowerCase();
+            if (!email) {
+                showMessage("Por favor, ingresa un email válido");
+                return;
+            }
+            
+            // Validar formato de email
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                showMessage("Por favor, ingresa un email válido");
+                return;
+            }
+            
+            try {
+                loadingSpinner.classList.remove('hidden');
+                loadingText.textContent = "Enviando invitación...";
+                
+                const docPath = `artifacts/${appId}/public/data/projects/${currentProjectId}`;
+                const projectRef = doc(db, docPath);
+                
+                // Obtener datos actuales
+                const projectDoc = await getDoc(projectRef);
+                if (!projectDoc.exists()) {
+                    showMessage("Error: Proyecto no encontrado");
+                    loadingSpinner.classList.add('hidden');
+                    return;
+                }
+                
+                const data = projectDoc.data();
+                const invitedUsers = data.invitedUsers || [];
+                
+                // Verificar si ya está invitado
+                if (invitedUsers.includes(email)) {
+                    showMessage("Este usuario ya está invitado al proyecto");
+                    loadingSpinner.classList.add('hidden');
+                    return;
+                }
+                
+                // Agregar email a la lista de invitados
+                invitedUsers.push(email);
+                
+                // Actualizar proyecto
+                await setDoc(projectRef, {
+                    invitedUsers: invitedUsers
+                }, { merge: true });
+                
+                console.log("Usuario invitado:", email, "al proyecto:", currentProjectId);
+                
+                // Cerrar modal y limpiar
+                inviteUserModal.classList.add('hidden');
+                inviteUserEmailInput.value = '';
+                
+                loadingSpinner.classList.add('hidden');
+                showMessage(`Usuario ${email} invitado exitosamente. Tendrá acceso cuando se registre con ese email.`);
+                
+            } catch (error) {
+                console.error("Error al invitar usuario:", error);
+                showMessage(`Error al invitar usuario: ${error.message}`);
+                loadingSpinner.classList.add('hidden');
+            }
+        }
+
         // --- Inicializar sistema de proyectos ---
         function setupFirestoreListener() {
-            // Cargar lista de proyectos
-            loadProjectsList();
+            // Esperar a que el usuario esté autenticado antes de cargar proyectos
+            if (userId) {
+                loadProjectsList();
+            }
         }
         
         async function saveInitialData() {
             if (!projectDocRef) return;
             try {
-                // Obtener datos actuales para preservar nombre y descripción
+                // Obtener datos actuales para preservar nombre, descripción y permisos
                 const currentDoc = await getDoc(projectDocRef);
                 const currentData = currentDoc.exists() ? currentDoc.data() : {};
                 
@@ -1475,6 +1677,9 @@
                     description: currentData.description || '',
                     content: JSON.stringify(projectData),
                     priorities: JSON.stringify(priorityTasks),
+                    isPrivate: currentData.isPrivate !== undefined ? currentData.isPrivate : false,
+                    createdBy: currentData.createdBy || auth.currentUser?.email || null,
+                    invitedUsers: currentData.invitedUsers || [],
                     createdAt: currentData.createdAt || new Date().toISOString(),
                     updatedAt: new Date().toISOString()
                 }, { merge: true });
@@ -1625,63 +1830,147 @@
                         }
                     };
 
-                    subsection.items.forEach(item => {
-                        const itemEl = document.createElement('li');
-                        itemEl.className = 'block p-2 rounded-md hover:bg-gray-700 transition-colors duration-150 task-item';
-                        itemEl.dataset.status = item.status;
-
-                        const mainItemRow = document.createElement('div');
-                        mainItemRow.className = 'flex items-center justify-between';
-
-                        const itemContent = document.createElement('div');
-                        itemContent.className = 'flex items-center flex-grow min-w-0';
-
-                        const statusIcon = document.createElement('span');
-                        statusIcon.className = 'status-icon cursor-pointer text-xl mr-3';
-                        statusIcon.textContent = item.status;
-                        statusIcon.dataset.sectionId = section.id;
-                        statusIcon.dataset.subsectionId = subsection.id;
-                        statusIcon.dataset.itemId = item.id;
-                        statusIcon.onclick = handleStatusClick;
-
-                        const itemText = document.createElement('span');
-                        itemText.className = 'flex-grow truncate';
-                        itemText.textContent = item.text;
-
-                        itemContent.appendChild(statusIcon);
-                        itemContent.appendChild(itemText);
-
-                        const noteIcon = document.createElement('span');
-                        noteIcon.className = 'note-icon cursor-pointer text-lg ml-3 text-gray-500 hover:text-blue-400 flex-shrink-0';
-                        noteIcon.textContent = '💬';
-                        noteIcon.dataset.sectionId = section.id;
-                        noteIcon.dataset.subsectionId = subsection.id;
-                        noteIcon.dataset.itemId = item.id;
-                        noteIcon.onclick = handleNoteClick;
-
-                        mainItemRow.appendChild(itemContent);
-                        mainItemRow.appendChild(noteIcon);
+                    // Crear tabla para tareas si hay items
+                    if (subsection.items.length > 0) {
+                        const tableContainer = document.createElement('div');
+                        tableContainer.className = 'overflow-x-auto mb-4';
                         
-                        itemEl.appendChild(mainItemRow);
-
-                        if (item.note && item.note.trim() !== '') {
-                            const noteContent = document.createElement('div');
-                            noteContent.className = 'note-display p-2 mt-2 ml-10 bg-gray-700 rounded-md text-sm text-gray-300';
-                            noteContent.innerHTML = linkify(item.note);
-
-                            noteContent.classList.add('cursor-pointer', 'hover:bg-gray-600', 'transition-colors');
-                            noteContent.dataset.sectionId = section.id;
-                            noteContent.dataset.subsectionId = subsection.id;
-                            noteContent.dataset.itemId = item.id;
-                            noteContent.onclick = handleNoteClick;
+                        const table = document.createElement('table');
+                        table.className = 'w-full text-sm';
+                        
+                        // Header de la tabla
+                        const thead = document.createElement('thead');
+                        thead.className = 'bg-gray-700';
+                        const headerRow = document.createElement('tr');
+                        headerRow.innerHTML = `
+                            <th class="px-3 py-2 text-left text-gray-300 font-semibold">Estado</th>
+                            <th class="px-3 py-2 text-left text-gray-300 font-semibold">Tarea</th>
+                            <th class="px-3 py-2 text-left text-gray-300 font-semibold">Prioridad</th>
+                            <th class="px-3 py-2 text-left text-gray-300 font-semibold">Fecha Límite</th>
+                            <th class="px-3 py-2 text-left text-gray-300 font-semibold">Responsable</th>
+                            <th class="px-3 py-2 text-center text-gray-300 font-semibold">Notas</th>
+                        `;
+                        thead.appendChild(headerRow);
+                        table.appendChild(thead);
+                        
+                        // Body de la tabla
+                        const tbody = document.createElement('tbody');
+                        
+                        subsection.items.forEach(item => {
+                            const row = document.createElement('tr');
+                            row.className = 'border-b border-gray-700 hover:bg-gray-700 transition-colors task-item';
+                            row.dataset.status = item.status;
                             
-                            itemEl.appendChild(noteContent);
-                            noteIcon.classList.add('has-note');
-                        } else {
-                            noteIcon.classList.remove('has-note');
-                        }
-                        itemsList.appendChild(itemEl);
-                    });
+                            // Estado
+                            const statusCell = document.createElement('td');
+                            statusCell.className = 'px-3 py-2';
+                            const statusIcon = document.createElement('span');
+                            statusIcon.className = 'status-icon cursor-pointer text-xl';
+                            statusIcon.textContent = item.status;
+                            statusIcon.dataset.sectionId = section.id;
+                            statusIcon.dataset.subsectionId = subsection.id;
+                            statusIcon.dataset.itemId = item.id;
+                            statusIcon.onclick = handleStatusClick;
+                            statusCell.appendChild(statusIcon);
+                            
+                            // Tarea
+                            const taskCell = document.createElement('td');
+                            taskCell.className = 'px-3 py-2';
+                            const taskText = document.createElement('span');
+                            taskText.className = item.status === '✅' ? 'line-through text-gray-500' : 'text-gray-100';
+                            taskText.textContent = item.text;
+                            taskCell.appendChild(taskText);
+                            
+                            // Prioridad
+                            const priorityCell = document.createElement('td');
+                            priorityCell.className = 'px-3 py-2';
+                            const priorityBadge = document.createElement('span');
+                            const priorityMap = {
+                                'baja': '🟢 Baja',
+                                'media': '🟡 Media',
+                                'alta': '🟠 Alta',
+                                'urgente': '🔴 Urgente'
+                            };
+                            priorityBadge.textContent = priorityMap[item.priority] || '🟡 Media';
+                            priorityBadge.className = 'text-sm';
+                            priorityCell.appendChild(priorityBadge);
+                            
+                            // Fecha Límite
+                            const dateCell = document.createElement('td');
+                            dateCell.className = 'px-3 py-2 text-gray-400 text-sm';
+                            if (item.dueDate) {
+                                const date = new Date(item.dueDate);
+                                const today = new Date();
+                                today.setHours(0, 0, 0, 0);
+                                const dueDate = new Date(date);
+                                dueDate.setHours(0, 0, 0, 0);
+                                
+                                if (dueDate < today && item.status !== '✅') {
+                                    dateCell.className = 'px-3 py-2 text-red-400 text-sm font-semibold';
+                                } else if (dueDate.getTime() === today.getTime()) {
+                                    dateCell.className = 'px-3 py-2 text-yellow-400 text-sm font-semibold';
+                                }
+                                
+                                dateCell.textContent = date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                            } else {
+                                dateCell.textContent = '-';
+                            }
+                            
+                            // Responsable
+                            const assignedCell = document.createElement('td');
+                            assignedCell.className = 'px-3 py-2 text-gray-400 text-sm';
+                            if (item.assignedTo) {
+                                assignedCell.textContent = item.assignedTo;
+                            } else {
+                                assignedCell.textContent = '-';
+                            }
+                            
+                            // Notas
+                            const noteCell = document.createElement('td');
+                            noteCell.className = 'px-3 py-2 text-center';
+                            const noteIcon = document.createElement('span');
+                            noteIcon.className = `note-icon cursor-pointer text-lg ${item.note && item.note.trim() ? 'text-blue-400' : 'text-gray-500 hover:text-blue-400'}`;
+                            noteIcon.textContent = '💬';
+                            noteIcon.dataset.sectionId = section.id;
+                            noteIcon.dataset.subsectionId = subsection.id;
+                            noteIcon.dataset.itemId = item.id;
+                            noteIcon.onclick = handleNoteClick;
+                            noteCell.appendChild(noteIcon);
+                            
+                            row.appendChild(statusCell);
+                            row.appendChild(taskCell);
+                            row.appendChild(priorityCell);
+                            row.appendChild(dateCell);
+                            row.appendChild(assignedCell);
+                            row.appendChild(noteCell);
+                            
+                            tbody.appendChild(row);
+                            
+                            // Nota expandida debajo de la fila si existe
+                            if (item.note && item.note.trim() !== '') {
+                                const noteRow = document.createElement('tr');
+                                const noteCellFull = document.createElement('td');
+                                noteCellFull.colSpan = 6;
+                                noteCellFull.className = 'px-3 py-2 bg-gray-700';
+                                const noteContent = document.createElement('div');
+                                noteContent.className = 'note-display text-sm text-gray-300 p-2 rounded';
+                                noteContent.innerHTML = linkify(item.note);
+                                noteContent.classList.add('cursor-pointer', 'hover:bg-gray-600', 'transition-colors');
+                                noteContent.dataset.sectionId = section.id;
+                                noteContent.dataset.subsectionId = subsection.id;
+                                noteContent.dataset.itemId = item.id;
+                                noteContent.onclick = handleNoteClick;
+                                noteCellFull.appendChild(noteContent);
+                                noteRow.appendChild(noteCellFull);
+                                tbody.appendChild(noteRow);
+                            }
+                        });
+                        
+                        table.appendChild(tbody);
+                        tableContainer.appendChild(table);
+                        itemsList.appendChild(tableContainer);
+                    }
+                    
 
                     subsectionEl.appendChild(itemsList);
                     tasksContainer.appendChild(subsectionEl);
@@ -1997,9 +2286,33 @@
             newProjectModal.classList.add('hidden');
             newProjectNameInput.value = '';
             newProjectDescriptionInput.value = '';
+            newProjectIsPrivateInput.checked = false;
         };
 
         deleteProjectBtn.onclick = deleteCurrentProject;
+
+        // --- Event Listeners para Invitaciones ---
+        inviteUserBtn.onclick = () => {
+            if (!currentProjectId) {
+                showMessage("Por favor, selecciona un proyecto primero");
+                return;
+            }
+            inviteUserModal.classList.remove('hidden');
+            inviteUserEmailInput.focus();
+        };
+
+        sendInviteBtn.onclick = inviteUserToProject;
+        cancelInviteBtn.onclick = () => {
+            inviteUserModal.classList.add('hidden');
+            inviteUserEmailInput.value = '';
+        };
+
+        // Permitir invitar con Enter
+        inviteUserEmailInput.onkeypress = (e) => {
+            if (e.key === 'Enter') {
+                inviteUserToProject();
+            }
+        };
 
         // Permitir crear proyecto con Enter
         newProjectNameInput.onkeypress = (e) => {

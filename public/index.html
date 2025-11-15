@@ -1,0 +1,1466 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Tareas - SCALEXONE</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Estilo para el scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937; /* bg-gray-800 */
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563; /* bg-gray-600 */
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280; /* bg-gray-500 */
+        }
+        .task-item[data-status="✅"] span {
+            text-decoration: line-through;
+            color: #6b7280; /* text-gray-500 */
+        }
+        .status-icon {
+            transition: transform 0.1s ease-in-out;
+        }
+        .status-icon:hover {
+            transform: scale(1.2);
+        }
+        .note-icon {
+            transition: transform 0.1s ease-in-out, color 0.1s ease-in-out;
+        }
+        .note-icon:hover {
+            transform: scale(1.2);
+        }
+        .note-icon.has-note {
+            color: #60a5fa; /* text-blue-400 */
+        }
+        .note-display {
+            white-space: pre-wrap; /* Mantiene saltos de línea y espacios */
+            word-break: break-word; /* Evita que los links largos rompan el layout */
+        }
+        .note-display a {
+            color: #60a5fa; /* text-blue-400 */
+            text-decoration: underline;
+        }
+        .note-display a:hover {
+            color: #93c5fd; /* text-blue-300 */
+        }
+        /* Estilos para el acordeón */
+        .accordion-header {
+            cursor: pointer;
+            transition: background-color 0.2s ease-out;
+        }
+        .accordion-header:hover {
+            background-color: #374151; /* bg-gray-700 */
+        }
+        .accordion-arrow {
+            display: inline-block;
+            transition: transform 0.2s ease-out;
+            margin-right: 0.5rem;
+            font-size: 0.8em;
+            width: 1.5rem; /* Ancho fijo para alinear */
+        }
+        .accordion-header.open .accordion-arrow {
+            transform: rotate(90deg);
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100">
+
+    <!-- Pantalla de Login (Oculta si ya está logueado) -->
+    <div id="login-container" class="hidden flex items-center justify-center min-h-screen">
+        <div class="bg-gray-800 p-8 rounded-lg shadow-xl max-w-sm mx-auto text-center">
+            <h1 class="text-3xl font-bold text-white mb-6">📋 Gestor de Proyectos</h1>
+            <p class="text-gray-400 mb-8">Por favor, inicia sesión para continuar.</p>
+            <button id="google-login-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg w-full flex items-center justify-center">
+                <svg class="w-5 h-5 mr-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48px" height="48px"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571l0.001-0.001l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/></svg>
+                Iniciar sesión con Google
+            </button>
+            <div class="text-sm text-gray-400 mt-6">
+                Estado: <span id="auth-status-login" class="font-semibold text-yellow-400">Desconectado</span>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Contenedor Principal de la App (Oculto al inicio) -->
+    <div id="main-app-container" class="hidden">
+        <!-- Contenedor Principal -->
+        <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+            <header class="flex flex-col md:flex-row justify-between items-center mb-6 pb-4 border-b border-gray-700">
+                <h1 id="project-title" class="text-3xl font-bold text-white mb-2 md:mb-0">📋 Gestor de Proyecto: SCALEXONE</h1>
+                <div class="text-sm text-gray-400">
+                    Estado: <span id="auth-status-main" class="font-semibold text-green-400">Conectado</span>
+                </div>
+            </header>
+
+            <!-- Contenedor del Proyecto -->
+            <div id="project-container" class="space-y-6">
+                <!-- El contenido se generará aquí -->
+            </div>
+        </div>
+
+        <!-- Sección de Tareas Prioritarias -->
+        <div class="container mx-auto p-4 md:p-8 max-w-7xl mt-8">
+            <h2 class="text-2xl font-bold text-white mb-4">🎯 Tareas Prioritarias</h2>
+            <div class="bg-gray-800 rounded-lg shadow-md p-4">
+                <ul id="priority-list" class="space-y-2 mb-4">
+                    <li class="text-gray-500 italic">Cargando tareas prioritarias...</li>
+                </ul>
+                <div class="flex">
+                    <input id="priority-input" type="text" class="flex-grow p-2 rounded-l-md bg-gray-700 text-gray-100 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Añadir nueva tarea prioritaria...">
+                    <button id="add-priority-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-r-md">
+                        Añadir
+                    </button>
+                </div>
+            </div>
+        </div>
+        <!-- Fin de Tareas Prioritarias -->
+    </div>
+
+    <!-- Indicador de Carga Global (Oculto al inicio) -->
+    <div id="loading-spinner" class="hidden fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75 z-50">
+        <div class="flex flex-col items-center">
+            <svg class="animate-spin -ml-1 mr-3 h-10 w-10 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span id="loading-text" class="mt-2 text-lg font-medium text-white">Conectando...</span>
+        </div>
+    </div>
+
+    <!-- Modal de Mensajes/Errores -->
+    <div id="message-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center z-40 hidden">
+        <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-sm mx-auto text-center">
+            <p id="message-text" class="text-lg text-white mb-4">Mensaje</p>
+            <button onclick="hideMessage()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg">
+                Entendido
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal de Notas -->
+    <div id="note-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center z-40 hidden">
+        <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-lg mx-auto w-full">
+            <h3 class="text-xl font-semibold text-white mb-4">Añadir/Editar Nota</h3>
+            <textarea id="note-textarea" rows="5" class="w-full p-2 rounded-md bg-gray-700 text-gray-100 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+            <div class="flex justify-end space-x-3 mt-4">
+                <button id="cancel-note-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-5 rounded-lg">
+                    Cancelar
+                </button>
+                <button id="save-note-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 rounded-lg">
+                    Guardar Nota
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script de Firebase -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { 
+            getAuth, 
+            onAuthStateChanged,
+            GoogleAuthProvider,     // <-- REQUERIDO
+            signInWithPopup       // <-- REQUERIDO
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            doc, 
+            getDoc, 
+            setDoc, 
+            onSnapshot,
+            setLogLevel
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- Configuración y Variables Globales ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAk9eA_iMIs8vQza199Hp_EIvVm7ughIFQ",
+            authDomain: "organizador--scalex.firebaseapp.com",
+            projectId: "organizador--scalex",
+            storageBucket: "organizador--scalex.firebasestorage.app",
+            messagingSenderId: "69457091494",
+            appId: "1:69457091494:web:e9c4224f03311e75e48d67",
+            measurementId: "G-R549Q9R2EN"
+        };
+        
+        const appId = firebaseConfig.projectId || 'default-scalexone-app';
+
+        let db, auth;
+        let userId = null;
+        let projectDocRef = null; 
+        
+        let projectData = []; 
+        let priorityTasks = []; 
+        let openAccordions = new Set(); 
+        let savedScrollY = 0; 
+        
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const loadingText = document.getElementById('loading-text');
+        
+        // --- Elementos de UI ---
+        const loginContainer = document.getElementById('login-container');
+        const mainAppContainer = document.getElementById('main-app-container');
+        const googleLoginBtn = document.getElementById('google-login-btn');
+        const authStatusLogin = document.getElementById('auth-status-login');
+        const authStatusMain = document.getElementById('auth-status-main');
+
+        // --- Elementos de Modales ---
+        const noteModal = document.getElementById('note-modal');
+        const noteTextarea = document.getElementById('note-textarea');
+        const saveNoteBtn = document.getElementById('save-note-btn');
+        const cancelNoteBtn = document.getElementById('cancel-note-btn');
+        let currentEditingItem = null;
+        let currentEditingPriorityItemIndex = null;
+
+        // --- Datos Iniciales (Plantilla para nuevos proyectos) ---
+        const initialProjectData = [
+            { "id": "1", "title": "🏗️ 1. INFRAESTRUCTURA BASE", "tasks": [
+                {"id": "1.1", "title": "1.1 Autenticación y Usuarios", "items": [
+                    {"id": "1.1.1", "text": "Sistema de registro/login con Supabase Auth", "status": "✅"},
+                    {"id": "1.1.2", "text": "Soporte para Email y Google OAuth", "status": "✅"},
+                    {"id": "1.1.3", "text": "Gestión de perfiles de usuario", "status": "✅"},
+                    {"id": "1.1.4", "text": "Sistema de roles (admin, moderador, usuario, superadmin, owner)", "status": "✅"},
+                    {"id": "1.1.5", "text": "Políticas RLS (Row Level Security) configuradas", "status": "✅"},
+                    {"id": "1.1.6", "text": "Verificar que el registro crea correctamente usuarios en tabla `usuarios`", "status": "⏳"},
+                    {"id": "1.1.7", "text": "Corregir asignación de `afiliado_referente` en registro", "status": "⏳"}
+                ]},
+                {"id": "1.2", "title": "1.2 Base de Datos", "items": [
+                    {"id": "1.2.1", "text": "Tabla `usuarios` con campos completos", "status": "✅"},
+                    {"id": "1.2.2", "text": "Tabla `comunidades` para gestión multi-tenant", "status": "✅"},
+                    {"id": "1.2.3", "text": "Tabla `canales` para organización de contenido", "status": "✅"},
+                    {"id": "1.2.4", "text": "Sistema de relaciones normalizadas", "status": "✅"},
+                    {"id": "1.2.5", "text": "Vistas y funciones SQL optimizadas", "status": "✅"},
+                    {"id": "1.2.6", "text": "Unificar `community_id` en todas las tablas (migración pendiente)", "status": "⏳"}
+                ]},
+                {"id": "1.3", "title": "1.3 Deployment y Hosting", "items": [
+                    {"id": "1.3.1", "text": "Frontend deployado en Vercel", "status": "✅"},
+                    {"id": "1.3.2", "text": "Base de datos en Supabase", "status": "✅"},
+                    {"id": "1.3.3", "text": "Storage para archivos en Supabase", "status": "✅"},
+                    {"id": "1.3.4", "text": "Configuración de variables de entorno", "status": "✅"},
+                    {"id": "1.3.5", "text": "Microservicio Stripe en stripe.scalexone.app", "status": "✅"}
+                ]}
+            ]},
+            { "id": "2", "title": "🎨 2. FRONTEND Y UX", "tasks": [
+                {"id": "2.1", "title": "2.1 Navegación y Layout", "items": [
+                    {"id": "2.1.1", "text": "Sistema de rutas con React Router", "status": "✅"},
+                    {"id": "2.1.2", "text": "Navbar responsive (ScrollNavbar, SecondNavbar)", "status": "✅"},
+                    {"id": "2.1.3", "text": "Sidebar colapsable", "status": "✅"},
+                    {"id": "2.1.4", "text": "Topbar con notificaciones", "status": "✅"},
+                    {"id": "2.1.5", "text": "Footer", "status": "✅"},
+                    {"id": "2.1.6", "text": "Sistema de menús dinámicos por comunidad", "status": "✅"},
+                    {"id": "2.1.7", "text": "Menú secundario visible en todas las páginas", "status": "✅"}
+                ]},
+                {"id": "2.2", "title": "2.2 Páginas Principales", "items": [
+                    {"id": "2.2.1", "text": "Página de inicio (Hero)", "status": "✅"},
+                    {"id": "2.2.2", "text": "Dashboard principal", "status": "✅"},
+                    {"id": "2.2.3", "text": "Classroom (gestión de cursos y módulos)", "status": "✅"},
+                    {"id": "2.2.4", "text": "Comunidad (foros y canales)", "status": "✅"},
+                    {"id": "2.2.5", "text": "Chat en tiempo real", "status": "✅"},
+                    {"id": "2.2.6", "text": "Página About", "status": "✅"},
+                    {"id": "2.2.7", "text": "Marketplace público", "status": "✅"},
+                    {"id": "2.2.8", "text": "Launchpad (sistema de eventos)", "status": "✅"}
+                ]},
+                {"id": "2.3", "title": "2.3 Componentes Reutilizables", "items": [
+                    {"id": "2.3.1", "text": "Botones personalizados", "status": "✅"},
+                    {"id":"2.3.2", "text": "Modales", "status": "✅"},
+                    {"id": "2.3.3", "text": "Forms con validación", "status": "✅"},
+                    {"id": "2.3.4", "text": "Tarjetas de productos", "status": "✅"},
+                    {"id": "2.3.5", "text": "Sistema de iconos", "status": "✅"},
+                    {"id": "2.3.6", "text": "Spinners de carga", "status": "✅"}
+                ]}
+            ]},
+            { "id": "3", "title": "🛒 3. MARKETPLACE", "tasks": [
+                {"id": "3.1", "title": "3.1 Cursos Marketplace", "items": [
+                    {"id": "3.1.1", "text": "Tabla `cursos_marketplace`", "status": "✅"},
+                    {"id": "3.1.2", "text": "CRUD completo desde panel admin", "status": "✅"},
+                    {"id": "3.1.3", "text": "Subida de imágenes", "status": "✅"},
+                    {"id": "3.1.4", "text": "Categorización y filtros", "status": "✅"},
+                    {"id": "3.1.5", "text": "Vista pública responsive", "status": "✅"},
+                    {"id": "3.1.6", "text": "Integración con sistema de suscripciones", "status": "✅"},
+                    {"id": "3.1.7", "text": "Agregar campo `stripe_price_id` a tabla", "status": "⏳"},
+                    {"id": "3.1.8", "text": "Crear producto en Stripe automáticamente al guardar curso", "status": "⏳"}
+                ]},
+                {"id": "3.2", "title": "3.2 Servicios Marketplace", "items": [
+                    {"id": "3.2.1", "text": "Tabla `servicios_marketplace`", "status": "✅"},
+                    {"id": "3.2.2", "text": "Soporte para pago único y suscripción", "status": "✅"},
+                    {"id": "3.2.3", "text": "CRUD completo", "status": "✅"},
+                    {"id": "3.2.4", "text": "Badges informativos (Pago Único / Suscripción)", "status": "✅"},
+                    {"id": "3.2.5", "text": "Filtros inteligentes por categoría", "status": "✅"},
+                    {"id": "3.2.6", "text": "Vista pública con diseño premium", "status": "✅"},
+                    {"id": "3.2.7", "text": "Funcionalidad de edición completa", "status": "✅"},
+                    {"id": "3.2.8", "text": "Agregar campo `stripe_price_id` a tabla", "status": "⏳"},
+                    {"id": "3.2.9", "text": "Crear producto en Stripe automáticamente al guardar servicio", "status": "⏳"}
+                ]},
+                {"id": "3.3", "title": "3.3 Funcionalidades Marketplace", "items": [
+                    {"id": "3.3.1", "text": "Filtros clickeables (Cursos, Servicios, Software/SaaS, Productos, Propiedades)", "status": "✅"},
+                    {"id": "3.3.2", "text": "Búsqueda por título y descripción", "status": "✅"},
+                    {"id": "3.3.3", "text": "Estadísticas en tiempo real", "status": "✅"},
+                    {"id": "3.3.4", "text": "Diseño tipo Netflix horizontal", "status": "✅"},
+                    {"id": "3.3.5", "text": "Colores diferenciados (dorado cursos, púrpura servicios)", "status": "✅"}
+                ]}
+            ]},
+            { "id": "4", "title": "👥 4. SISTEMA DE COMUNIDAD", "tasks": [
+                {"id": "4.1", "title": "4.1 Canales", "items": [
+                    {"id": "4.1.1", "text": "Tabla `canales` con sistema de jerarquía", "status": "✅"},
+                    {"id": "4.1.2", "text": "Panel admin con drag & drop para reordenamiento", "status": "✅"},
+                    {"id": "4.1.3", "text": "Canales predefinidos (#Presentate, #Chat General, #CANAL VIP)", "status": "✅"},
+                    {"id": "4.1.4", "text": "Permisos por canal", "status": "✅"},
+                    {"id": "4.1.5", "text": "Sistema de mensajería", "status": "✅"},
+                    {"id": "4.1.6", "text": "Restricción por suscripción/niveles (funciones SQL implementadas)", "status": "✅"},
+                    {"id": "4.1.7", "text": "Verificar que las restricciones funcionan correctamente en frontend", "status": "⏳"},
+                    {"id": "4.1.8", "text": "Agregar checks visuales de restricción en módulos", "status": "⏳"}
+                ]},
+                {"id": "4.2", "title": "4.2 Configuración", "items": [
+                    {"id": "4.2.1", "text": "Configuración por comunidad", "status": "✅"},
+                    {"id": "4.2.2", "text": "Menú secundario personalizable", "status": "✅"},
+                    {"id": "4.2.3", "text": "Temas de color dinámicos", "status": "✅"},
+                    {"id": "4.2.4", "text": "Upload de logos e imágenes", "status": "✅"}
+                ]}
+            ]},
+            { "id": "5", "title": "💰 5. SISTEMA DE SUSCRIPCIONES", "tasks": [
+                {"id": "5.1", "title": "5.1 Planes de Suscripción", "items": [
+                    {"id": "5.1.1", "text": "Tabla `planes_suscripcion`", "status": "✅"},
+                    {"id": "5.1.2", "text": "Características JSONB flexibles", "status": "✅"},
+                    {"id": "5.1.3", "text": "Soporte multi-moneda (USD, EUR, MXN, COP)", "status": "✅"},
+                    {"id": "5.1.4", "text": "Sistema de pruebas gratis configurable", "status": "✅"},
+                    {"id": "5.1.5", "text": "Categorización (Básico, Premium, Enterprise)", "status": "✅"},
+                    {"id": "5.1.6", "text": "Colores personalizados", "status": "✅"},
+                    {"id": "5.1.7", "text": "Planes destacados", "status": "✅"},
+                    {"id": "5.1.8", "text": "Agregar campo `stripe_price_id` a tabla (CRÍTICO)", "status": "⏳"},
+                    {"id": "5.1.9", "text": "Crear producto en Stripe automáticamente al guardar plan", "status": "⏳"}
+                ]},
+                {"id": "5.2", "title": "5.2 Gestión de Suscripciones", "items": [
+                    {"id": "5.2.1", "text": "Portal de Suscripciones integrado", "status": "✅"},
+                    {"id": "5.2.2", "text": "Conexión automática con cursos y servicios", "status": "✅"},
+                    {"id": "5.2.3", "text": "Estadísticas y métricas", "status": "✅"},
+                    {"id": "5.2.4", "text": "Tasa de conversión automática", "status": "✅"},
+                    {"id": "5.2.5", "text": "Plan más popular identificado", "status": "✅"},
+                    {"id": "5.2.6", "text": "Verificar activación automática desde webhook de Stripe", "status": "⏳"},
+                    {"id": "5.2.7", "text": "Manejar cancelaciones y renovaciones", "status": "⏳"}
+                ]},
+                {"id": "5.3", "title": "5.3 Restricciones por Suscripción/Niveles", "items": [
+                    {"id": "5.3.1", "text": "Funciones SQL para verificar acceso por suscripción", "status": "✅"},
+                    {"id": "5.3.2", "text": "Verificación de acceso en canales", "status": "✅"},
+                    {"id": "5.3.3", "text": "Implementar checks de restricción en módulos de Classroom", "status": "⏳"},
+                    {"id": "5.3.4", "text": "Implementar checks de restricción en herramientas (Alpha X100, Trading Lab, etc.)", "status": "⏳"},
+                    {"id": "5.3.5", "text": "Agregar UI visual cuando el contenido está restringido", "status": "⏳"},
+                    {"id": "5.3.6", "text": "Mensajes informativos sobre qué plan se necesita", "status": "⏳"}
+                ]}
+            ]},
+            { "id": "6", "title": "🤝 6. SISTEMA DE AFILIADOS", "tasks": [
+                {"id": "6.1", "title": "6.1 Estructura Base", "items": [
+                    {"id": "6.1.1", "text": "Sistema de códigos IB únicos (IB001, IB002, etc.)", "status": "✅"},
+                    {"id": "6.1.2", "text": "Códigos independientes por comunidad", "status": "✅"},
+                    {"id": "6.1.3", "text": "Códigos Hospper con sufijo `H`", "status": "✅"},
+                    {"id": "6.1.4", "text": "Dashboard completo para afiliados", "status": "✅"},
+                    {"id": "6.1.5", "text": "Historial de transacciones", "status": "✅"},
+                    {"id": "6.1.6", "text": "Ejecutar scripts SQL de corrección pendientes", "status": "⏳"},
+                    {"id": "6.1.7", "text": "Verificar que el tracking funciona correctamente", "status": "⏳"}
+                ]},
+                {"id": "6.2", "title": "6.2 Tracking", "items": [
+                    {"id": "6.2.1", "text": "Tabla `codigos_afiliado`", "status": "✅"},
+                    {"id": "6.2.2", "text": "Tabla `clicks_afiliado`", "status": "✅"},
+                    {"id": "6.2.3", "text": "Tabla `comisiones_afiliado`", "status": "✅"},
+                    {"id": "6.2.4", "text": "Tabla `conversiones_afiliado`", "status": "✅"},
+                    {"id": "6.2.5", "text": "Funciones RPC optimizadas", "status": "✅"},
+                    {"id": "6.2.6", "text": "Verificar que se registran clicks correctamente", "status": "⏳"},
+                    {"id": "6.2.7", "text": "Verificar que se registran leads al registrarse usuarios", "status": "⏳"},
+                    {"id": "6.2.8", "text": "Eliminar creación de ventas falsas automáticas", "status": "⏳"}
+                ]},
+                {"id": "6.3", "title": "6.3 Funcionalidades", "items": [
+                    {"id": "6.3.1", "text": "Generación automática de códigos", "status": "✅"},
+                    {"id": "6.3.2", "text": "Links de afiliado personalizables", "status": "✅"},
+                    {"id": "6.3.3", "text": "Cálculo de saldo disponible", "status": "✅"},
+                    {"id": "6.3.4", "text": "Sistema de retiros con validaciones", "status": "✅"},
+                    {"id": "6.3.5", "text": "Transferencias entre códigos IB", "status": "✅"},
+                    {"id": "6.3.6", "text": "Comisiones multinivel (3 niveles) - estructura implementada", "status": "✅"},
+                    {"id": "6.3.7", "text": "Verificar que las comisiones multinivel se calculan correctamente", "status": "⏳"},
+                    {"id": "6.3.8", "text": "Verificar que las comisiones se asignan automáticamente en ventas", "status": "⏳"}
+                ]},
+                {"id": "6.4", "title": "6.4 Panel de Afiliados", "items": [
+                    {"id": "6.4.1", "text": "Dashboard con métricas en tiempo real", "status": "✅"},
+                    {"id": "6.4.2", "text": "Página de enlaces de afiliado", "status": "✅"},
+                    {"id": "6.4.3", "text": "Página de retiros", "status": "✅"},
+                    {"id": "6.4.4", "text": "Página de transferencias", "status": "✅"},
+                    {"id": "6.4.5", "text": "Página de historial", "status": "✅"},
+                    {"id": "6.4.6", "text": "Página multinivel", "status": "✅"},
+                    {"id": "6.4.7", "text": "Conectar historial a datos reales", "status": "⏳"},
+                    {"id": "6.4.8", "text": "Verificar que todas las métricas se muestran correctamente", "status": "⏳"}
+                ]},
+                {"id": "6.5", "title": "6.5 Sistema Multinivel Completo", "items": [
+                    {"id": "6.5.1", "text": "Verificar que el sistema de 3 niveles funciona correctamente", "status": "⏳"},
+                    {"id": "6.5.2", "text": "Verificar asignación de `afiliado_referente` en todos los niveles", "status": "⏳"},
+                    {"id": "6.5.3", "text": "Probar flujo completo: registro → compra → comisión multinivel", "status": "⏳"},
+                    {"id": "6.5.4", "text": "Verificar notificaciones a todos los niveles", "status": "⏳"}
+                ]}
+            ]},
+            { "id": "7", "title": "💳 7. INTEGRACIÓN DE PAGOS", "tasks": [
+                {"id": "7.1", "title": "7.1 Stripe", "items": [
+                    {"id": "7.1.1", "text": "Microservicio Stripe deployado", "status": "✅"},
+                    {"id": "7.1.2", "text": "Endpoints API implementados", "status": "✅"},
+                    {"id": "7.1.3", "text": "Servicio frontend `stripeService.ts`", "status": "✅"},
+                    {"id": "7.1.4", "text": "Componente `StripePaymentButton`", "status": "✅"},
+                    {"id": "7.1.5", "text": "Variables de entorno configuradas", "status": "✅"},
+                    {"id": "7.1.6", "text": "Webhook configurado para eventos", "status": "✅"},
+                    {"id": "7.1.7", "text": "Conectar botones de compra en marketplace", "status": "⏳"},
+                    {"id": "7.1.8", "text": "Crear páginas de éxito/error después del pago (`/success`, `/cancel`)", "status": "⏳"},
+                    {"id": "7.1.9", "text": "Verificar creación de ventas en BD desde webhook", "status": "⏳"},
+                    {"id": "7.1.10", "text": "Integrar comisiones automáticas de afiliados en webhook", "status": "⏳"},
+                    {"id": "7.1.11", "text": "Agregar campo `stripe_price_id` a todas las tablas de productos", "status": "⏳"},
+                    {"id": "7.1.12", "text": "Crear productos en Stripe automáticamente al guardar", "status": "⏳"},
+                    {"id": "7.1.13", "text": "Probar flujo completo de pago (crear → pagar → activar)", "status": "⏳"}
+                ]},
+                {"id": "7.2", "title": "7.2 Pagos Crypto (NOWPayments/CoinGate)", "items": [
+                    {"id": "7.2.1", "text": "Endpoints API para NOWPayments", "status": "✅"},
+                    {"id": "7.2.2", "text": "Endpoints API para CoinGate", "status": "✅"},
+                    {"id": "7.2.3", "text": "Webhooks implementados", "status": "✅"},
+                    {"id": "7.2.4", "text": "Verificar que los webhooks funcionan correctamente", "status": "⏳"},
+                    {"id": "7.2.5", "text": "Probar flujo completo de pago crypto", "status": "⏳"},
+                    {"id": "7.2.6", "text": "Verificar creación de ventas en BD", "status": "⏳"},
+                    {"id": "7.2.7", "text": "Integrar comisiones automáticas de afiliados", "status": "⏳"},
+                    {"id": "7.2.8", "text": "Panel admin para gestionar pagos crypto", "status": "⏳"}
+                ]},
+                {"id": "7.3", "title": "7.3 Otros Métodos de Pago", "items": [
+                    {"id": "7.3.1", "text": "Integrar PayPal", "status": "❌"},
+                    {"id": "7.3.2", "text": "Integrar pagos locales (Yape, Plin, Nequi, etc.)", "status": "❌"},
+                    {"id": "7.3.3", "text": "Sistema de pagos contraentrega", "status": "❌"},
+                    {"id": "7.3.4", "text": "Panel admin para gestionar métodos de pago", "status": "❌"}
+                ]}
+            ]},
+            { "id": "8", "title": "📚 8. SISTEMA CLASSROOM", "tasks": [
+                {"id": "8.1", "title": "8.1 Funcionalidades Base", "items": [
+                    {"id": "8.1.1", "text": "Gestión de cursos y módulos", "status": "✅"},
+                    {"id": "8.1.2", "text": "Subida y visualización de videos", "status": "✅"},
+                    {"id": "8.1.3", "text": "Sistema de progreso", "status": "✅"},
+                    {"id": "8.1.4", "text": "Edición de contenido", "status": "✅"},
+                    {"id": "8.1.5", "text": "Organización por módulos", "status": "✅"},
+                    {"id": "8.1.6", "text": "Implementar restricciones por suscripción/niveles", "status": "⏳"},
+                    {"id": "8.1.7", "text": "Agregar checks visuales de restricción", "status": "⏳"}
+                ]},
+                {"id": "8.2", "title": "8.2 Funcionalidades Avanzadas", "items": [
+                    {"id": "8.2.1", "text": "Certificados de finalización automáticos", "status": "❌"},
+                    {"id": "8.2.2", "text": "Sistema de calificaciones y exámenes", "status": "❌"},
+                    {"id": "8.2.3", "text": "Comentarios y preguntas en videos", "status": "❌"},
+                    {"id": "8.2.4", "text": "Estadísticas de progreso detalladas", "status": "❌"}
+                ]}
+            ]},
+            { "id": "9", "title": "🚀 9. SISTEMA LAUNCHPAD", "tasks": [
+                {"id": "9.1", "title": "9.1 Funcionalidades", "items": [
+                    {"id": "9.1.1", "text": "Sistema de eventos y calendario", "status": "✅"},
+                    {"id": "9.1.2", "text": "Video destacado con contador regresivo", "status": "✅"},
+                    {"id": "9.1.3", "text": "Barra lateral desplegable con logo personalizable", "status": "✅"},
+                    {"id": "9.1.4", "text": "Botones personalizables con redirección", "status": "✅"},
+                    {"id": "9.1.5", "text": "Sistema de calificaciones y comentarios", "status": "✅"},
+                    {"id": "9.1.6", "text": "Integración con sistema de referidos", "status": "✅"},
+                    {"id": "9.1.7", "text": "Carga de imágenes en bucket dedicado", "status": "✅"},
+                    {"id": "9.1.8", "text": "Editor completo desde panel admin", "status": "✅"},
+                    {"id": "9.1.9", "text": "Colores unificados (paleta dorada)", "status": "✅"},
+                    {"id": "9.1.10", "text": "Responsive design", "status": "✅"}
+                ]}
+            ]},
+            { "id": "10", "title": "⚙️ 10. PANEL ADMINISTRATIVO", "tasks": [
+                {"id": "10.1", "title": "10.1 Secciones Implementadas", "items": [
+                    {"id": "10.1.1", "text": "Dashboard general", "status": "✅"},
+                    {"id": "10.1.2", "text": "Configuración de comunidad", "status": "✅"},
+                    {"id": "10.1.3", "text": "Gestión de canales (con drag & drop)", "status": "✅"},
+                    {"id": "10.1.4", "text": "Gestión de cursos marketplace", "status": "✅"},
+                    {"id": "10.1.5", "text": "Gestión de servicios marketplace", "status": "✅"},
+                    {"id": "10.1.6", "text": "Portal de Suscripciones", "status": "✅"},
+                    {"id": "10.1.7", "text": "Panel de Finanzas (Suscripciones, Ventas, Transacciones)", "status": "✅"},
+                    {"id": "10.1.8", "text": "Panel de Afiliados", "status": "✅"},
+                    {"id": "10.1.9", "text": "Gestión de Launchpad", "status": "✅"},
+                    {"id": "10.1.10", "text": "Configuración general", "status": "✅"},
+                    {"id": "10.1.11", "text": "Email Marketing Panel", "status": "✅"}
+                ]},
+                {"id": "10.2", "title": "10.2 Funcionalidades Admin", "items": [
+                    {"id": "10.2.1", "text": "Crear, editar, eliminar productos", "status": "✅"},
+                    {"id": "10.2.2", "text": "Activar/desactivar productos", "status": "✅"},
+                    {"id": "10.2.3", "text": "Subir imágenes", "status": "✅"},
+                    {"id": "10.2.4", "text": "Configurar precios y características", "status": "✅"},
+                    {"id": "10.2.5", "text": "Estadísticas y métricas", "status": "✅"},
+                    {"id": "10.2.6", "text": "Reportes", "status": "✅"}
+                ]}
+            ]},
+            { "id": "11", "title": "📧 11. SISTEMA DE EMAIL MARKETING", "tasks": [
+                {"id": "11.1", "title": "11.1 Infraestructura", "items": [
+                    {"id": "11.1.1", "text": "Integración con SendGrid", "status": "✅"},
+                    {"id": "11.1.2", "text": "Integración con Resend", "status": "✅"},
+                    {"id": "11.1.3", "text": "Sistema de plantillas en Supabase Storage", "status": "✅"},
+                    {"id": "11.1.4", "text": "Variables dinámicas con Handlebars", "status": "✅"},
+                    {"id": "11.1.5", "text": "White-Label: colores y branding dinámicos", "status": "✅"},
+                    {"id": "11.1.6", "text": "Verificar que todas las plantillas funcionan correctamente", "status": "⏳"},
+                    {"id": "11.1.7", "text": "Verificar que los emails se envían correctamente", "status": "⏳"}
+                ]},
+                {"id": "11.2", "title": "11.2 Funcionalidades", "items": [
+                    {"id": "11.2.1", "text": "Email de bienvenida al registrarse", "status": "✅"},
+                    {"id": "11.2.2", "text": "Email cuando se crea un curso", "status": "✅"},
+                    {"id": "11.2.3", "text": "Email masivo cuando admin/moderador publica", "status": "✅"},
+                    {"id": "11.2.4", "text": "Notificaciones in-app (campanita)", "status": "✅"},
+                    {"id": "11.2.5", "text": "Email de confirmación de pago exitoso", "status": "⏳"},
+                    {"id": "11.2.6", "text": "Email de pago fallido", "status": "⏳"},
+                    {"id": "11.2.7", "text": "Email de activación de suscripción", "status": "⏳"},
+                    {"id": "11.2.8", "text": "Email de cancelación de suscripción", "status": "⏳"},
+                    {"id": "11.2.9", "text": "Sequence de emails automáticos", "status": "⏳"},
+                    {"id": "11.2.10", "text": "Recordatorios de vencimiento", "status": "⏳"}
+                ]},
+                {"id": "11.3", "title": "11.3 Notificaciones Push", "items": [
+                    {"id": "11.3.1", "text": "Componente `PushNotificationManager.tsx` (frontend)", "status": "✅"},
+                    {"id": "11.3.2", "text": "Service Worker implementado", "status": "✅"},
+                    {"id": "11.3.3", "text": "Endpoint para guardar suscripciones push en BD", "status": "⏳"},
+                    {"id": "11.3.4", "text": "Endpoint para enviar push notifications desde servidor", "status": "⏳"},
+                    {"id": "11.3.5", "text": "Tabla en Supabase para almacenar suscripciones push", "status": "⏳"},
+                    {"id": "11.3.6", "text": "Integración de push en webhooks de pago", "status": "⏳"},
+                    {"id": "11.3.7", "text": "Configurar VAPID keys", "status": "⏳"}
+                ]}
+            ]},
+            { "id": "12", "title": "🔔 12. SISTEMA DE NOTIFICACIONES", "tasks": [
+                {"id": "12.1", "title": "12.1 Notificaciones In-App", "items": [
+                    {"id": "12.1.1", "text": "Tabla `notificaciones`", "status": "✅"},
+                    {"id": "12.1.2", "text": "Sistema de campanita en Topbar", "status": "✅"},
+                    {"id": "12.1.3", "text": "Actualización automática cada 30 segundos", "status": "✅"},
+                    {"id": "12.1.4", "text": "Notificaciones filtradas por comunidad", "status": "✅"},
+                    {"id": "12.1.5", "text": "Marcar como leídas", "status": "✅"},
+                    {"id": "12.1.6", "text": "Verificar que todas las notificaciones se crean correctamente", "status": "⏳"}
+                ]},
+                {"id": "12.2", "title": "12.2 Notificaciones de Afiliados", "items": [
+                    {"id": "12.2.1", "text": "Notificaciones de registro", "status": "✅"},
+                    {"id": "12.2.2", "text": "Notificaciones de ventas", "status": "✅"},
+                    {"id": "12.2.3", "text": "Notificaciones de suscripciones", "status": "✅"},
+                    {"id": "12.2.4", "text": "Sistema multinivel (notifica a todos los niveles)", "status": "✅"},
+                    {"id": "12.2.5", "text": "Verificar que las notificaciones se envían a todos los niveles", "status": "⏳"},
+                    {"id": "12.2.6", "text": "Verificar que las notificaciones incluyen información correcta", "status": "⏳"}
+                ]},
+                {"id": "12.3", "title": "12.3 Notificaciones de Ventas, Leads y Registros", "items": [
+                    {"id": "12.3.1", "text": "Notificaciones de nuevos registros (implementado)", "status": "✅"},
+                    {"id": "12.3.2", "text": "Notificaciones de ventas (implementado en webhook)", "status": "✅"},
+                    {"id": "12.3.3", "text": "Verificar que las notificaciones de ventas se envían correctamente", "status": "⏳"},
+                    {"id": "12.3.4", "text": "Verificar que las notificaciones de leads se envían correctamente", "status": "⏳"},
+                    {"id": "12.3.5", "text": "Notificaciones de nuevos leads (pendiente verificar)", "status": "⏳"},
+                    {"id": "12.3.6", "text": "Dashboard de notificaciones para admin", "status": "⏳"}
+                ]}
+            ]},
+            { "id": "13", "title": "🔒 13. SEGURIDAD Y PERMISOS", "tasks": [
+                {"id": "13.1", "title": "13.1 Restricciones por Suscripción/Niveles", "items": [
+                    {"id": "13.1.1", "text": "Funciones SQL para verificar acceso", "status": "✅"},
+                    {"id": "13.1.2", "text": "Verificación en canales", "status": "✅"},
+                    {"id": "13.1.3", "text": "Verificación en Alpha X100", "status": "✅"},
+                    {"id": "13.1.4", "text": "Implementar en todos los módulos de Classroom", "status": "⏳"},
+                    {"id": "13.1.5", "text": "Implementar en Trading Lab", "status": "⏳"},
+                    {"id": "13.1.6", "text": "Implementar en Crypto Health Scanner", "status": "⏳"},
+                    {"id": "13.1.7", "text": "Implementar en todas las herramientas premium", "status": "⏳"},
+                    {"id": "13.1.8", "text": "Agregar UI visual de restricción", "status": "⏳"},
+                    {"id": "13.1.9", "text": "Mensajes informativos sobre planes requeridos", "status": "⏳"}
+                ]},
+                {"id": "13.2", "title": "13.2 Autenticación 2FA", "items": [
+                    {"id": "13.2.1", "text": "Integrar autenticador Google (2FA)", "status": "❌"},
+                    {"id": "13.2.2", "text": "Requerir 2FA para retiros y transferencias", "status": "❌"},
+                    {"id": "13.2.3", "text": "Panel de configuración de 2FA", "status": "❌"}
+                ]},
+                {"id": "13.3", "title": "13.3 Auditoría y Logs", "items": [
+                    {"id": "13.3.1", "text": "Mejorar sistema de logs", "status": "⏳"},
+                    {"id": "13.3.2", "text": "Implementar rate limiting", "status": "⏳"},
+                    {"id": "13.3.3", "text": "Sistema de auditoría de acciones críticas", "status": "⏳"}
+                ]}
+            ]},
+            { "id": "14", "title": "💰 14. WALLET XCOIN", "tasks": [
+                {"id": "14.1", "title": "14.1 Infraestructura Base", "items": [
+                    {"id": "14.1.1", "text": "Tabla `wallet_xcoin` en base de datos", "status": "❌"},
+                    {"id": "14.1.2", "text": "Tabla `transacciones_xcoin` para historial", "status": "❌"},
+                    {"id": "14.1.3", "text": "Sistema de balance y saldos", "status": "❌"},
+                    {"id": "14.1.4", "text": "Integración con sistema de afiliados (comisiones en XCOIN)", "status": "❌"},
+                    {"id": "14.1.5", "text": "Integración con sistema de pagos (depósitos)", "status": "❌"}
+                ]},
+                {"id": "14.2", "title": "14.2 Frontend - Ver Saldos", "items": [
+                    {"id": "14.2.1", "text": "Página/componente de Wallet XCOIN", "status": "❌"},
+                    {"id": "14.2.2", "text": "Visualización de saldo actual", "status": "❌"},
+                    {"id": "14.2.3", "text": "Historial de transacciones", "status": "❌"},
+                    {"id": "14.2.4", "text": "Filtros por tipo de transacción (depósito, retiro, comisión, intercambio)", "status": "❌"},
+                    {"id": "14.2.5", "text": "Gráficos de movimientos", "status": "❌"},
+                    {"id": "14.2.6", "text": "Diseño responsive y moderno", "status": "❌"}
+                ]},
+                {"id": "14.3", "title": "14.3 Frontend - Enviar XCOIN", "items": [
+                    {"id": "14.3.1", "text": "Formulario de envío", "status": "❌"},
+                    {"id": "14.3.2", "text": "Validación de destinatario (email o código IB)", "status": "❌"},
+                    {"id": "14.3.3", "text": "Validación de saldo suficiente", "status": "❌"},
+                    {"id": "14.3.4", "text": "Confirmación de transacción", "status": "❌"},
+                    {"id": "14.3.5", "text": "Notificación al destinatario", "status": "❌"},
+                    {"id": "14.3.6", "text": "Registro en historial", "status": "❌"}
+                ]},
+                {"id": "14.4", "title": "14.4 Frontend - Intercambiar XCOIN", "items": [
+                    {"id": "14.4.1", "text": "Interfaz de intercambio", "status": "❌"},
+                    {"id": "14.4.2", "text": "Conversión XCOIN a USD/EUR/etc.", "status": "❌"},
+                    {"id": "14.4.3", "text": "Conversión de otras monedas a XCOIN", "status": "❌"},
+                    {"id": "14.4.4", "text": "Tasas de cambio en tiempo real", "status": "❌"},
+                    {"id": "14.4.5", "text": "Confirmación de intercambio", "status": "❌"},
+                    {"id": "14.4.6", "text": "Registro en historial", "status": "❌"}
+                ]},
+                {"id": "14.5", "title": "14.5 Frontend - Retirar XCOIN", "items": [
+                    {"id": "14.5.1", "text": "Formulario de retiro", "status": "❌"},
+                    {"id": "14.5.2", "text": "Validación de monto mínimo", "status": "❌"},
+                    {"id": "14.5.3", "text": "Selección de método de retiro (crypto, transferencia bancaria, etc.)", "status": "❌"},
+                    {"id": "14.5.4", "text": "Validación de datos de retiro", "status": "❌"},
+                    {"id": "14.5.5", "text": "Confirmación de solicitud", "status": "❌"},
+                    {"id": "14.5.6", "text": "Estado de solicitud (pendiente, procesado, rechazado)", "status": "❌"},
+                    {"id": "14.5.7", "text": "Notificación al admin para procesar retiro", "status": "❌"}
+                ]},
+                {"id": "14.6", "title": "14.6 Backend - APIs", "items": [
+                    {"id": "14.6.1", "text": "Endpoint para obtener saldo de usuario", "status": "❌"},
+                    {"id": "14.6.2", "text": "Endpoint para enviar XCOIN", "status": "❌"},
+                    {"id": "14.6.3", "text": "Endpoint para intercambiar XCOIN", "status": "❌"},
+                    {"id": "14.6.4", "text": "Endpoint para solicitar retiro", "status": "❌"},
+                    {"id": "14.6.5", "text": "Endpoint para historial de transacciones", "status": "❌"},
+                    {"id": "14.6.6", "text": "Endpoint admin para procesar retiros", "status": "❌"},
+                    {"id": "14.6.7", "text": "Validaciones de seguridad y permisos", "status": "❌"}
+                ]},
+                {"id": "14.7", "title": "14.7 Integración con Sistema de Afiliados", "items": [
+                    {"id": "14.7.1", "text": "Asignar comisiones CPA en XCOIN automáticamente", "status": "❌"},
+                    {"id": "14.7.2", "text": "Notificar afiliado cuando recibe comisión en XCOIN", "status": "❌"},
+                    {"id": "14.7.3", "text": "Dashboard de afiliados muestra saldo XCOIN", "status": "❌"},
+                    {"id": "14.7.4", "text": "Opción de retirar comisiones en XCOIN", "status": "❌"}
+                ]},
+                {"id": "14.8", "title": "14.8 Integración con Pagos", "items": [
+                    {"id": "14.8.1", "text": "Depósitos desde Stripe se convierten a XCOIN (opcional)", "status": "❌"},
+                    {"id": "14.8.2", "text": "Depósitos desde NOWPayments se convierten a XCOIN (opcional)", "status": "❌"},
+                    {"id": "14.8.3", "text": "Configuración de tasa de conversión", "status": "❌"},
+                    {"id": "14.8.4", "text": "Historial de depósitos", "status": "❌"}
+                ]},
+                {"id": "14.9", "title": "14.9 Panel Admin - Gestión de Retiros", "items": [
+                    {"id": "14.9.1", "text": "Lista de solicitudes de retiro pendientes", "status": "❌"},
+                    {"id": "14.9.2", "text": "Detalles de cada solicitud", "status": "❌"},
+                    {"id": "14.9.3", "text": "Procesar retiro (aprobar/rechazar)", "status": "❌"},
+                    {"id": "14.9.4", "text": "Enviar email de confirmación al usuario", "status": "❌"},
+                    {"id": "14.9.5", "text": "Actualizar estado de retiro", "status": "❌"},
+                    {"id": "14.9.6", "text": "Historial completo de retiros procesados", "status": "❌"}
+                ]}
+            ]},
+            { "id": "15", "title": "🧪 15. PRUEBAS Y VERIFICACIONES", "tasks": [
+                {"id": "15.1", "title": "15.1 Pruebas de Suscripciones", "items": [
+                    {"id": "15.1.1", "text": "Probar creación de suscripción", "status": "⏳"},
+                    {"id": "15.1.2", "text": "Probar activación automática desde webhook", "status": "⏳"},
+                    {"id": "15.1.3", "text": "Probar cancelación", "status": "⏳"},
+                    {"id": "15.1.4", "text": "Probar renovación", "status": "⏳"},
+                    {"id": "15.1.5", "text": "Probar restricciones de acceso", "status": "⏳"}
+                ]},
+                {"id": "15.2", "title": "15.2 Pruebas de Pagos Stripe", "items": [
+                    {"id": "15.2.1", "text": "Probar pago único", "status": "⏳"},
+                    {"id": "15.2.2", "text": "Probar suscripción recurrente", "status": "⏳"},
+                    {"id": "15.2.3", "text": "Probar webhook de eventos", "status": "⏳"},
+                    {"id": "15.2.4", "text": "Probar creación de ventas en BD", "status": "⏳"},
+                    {"id": "15.2.5", "text": "Probar asignación de comisiones de afiliados", "status": "⏳"},
+                    {"id": "15.2.6", "text": "Probar páginas de éxito/error", "status": "⏳"}
+                ]},
+                {"id": "15.3", "title": "15.3 Pruebas de Pagos Crypto", "items": [
+                    {"id": "15.3.1", "text": "Probar pago con NOWPayments", "status": "⏳"},
+                    {"id": "15.3.2", "text": "Probar pago con CoinGate", "status": "⏳"},
+                    {"id": "15.3.3", "text": "Probar webhooks", "status": "⏳"},
+                    {"id": "15.3.4", "text": "Probar creación de ventas en BD", "status": "⏳"},
+                    {"id": "15.3.5", "text": "Probar asignación de comisiones", "status": "⏳"}
+                ]},
+                {"id": "15.4", "title": "15.4 Pruebas de Sistema de Afiliados", "items": [
+                    {"id": "15.4.1", "text": "Probar registro con tracking", "status": "⏳"},
+                    {"id": "15.4.2", "text": "Probar clicks en links de afiliado", "status": "⏳"},
+                    {"id": "15.4.3", "text": "Probar creación de leads", "status": "⏳"},
+                    {"id": "15.4.4", "text": "Probar asignación de comisiones multinivel", "status": "⏳"},
+                    {"id": "15.4.5", "text": "Probar notificaciones a afiliados", "status": "⏳"},
+                    {"id": "15.4.6", "text": "Probar retiros", "status": "⏳"},
+                    {"id": "15.4.7", "text": "Probar transferencias", "status": "⏳"}
+                ]},
+                {"id": "15.5", "title": "15.5 Pruebas Generales", "items": [
+                    {"id": "15.5.1", "text": "Probar flujo completo de registro → compra → comisión", "status": "⏳"},
+                    {"id": "15.5.2", "text": "Probar restricciones por suscripción en todos los módulos", "status": "⏳"},
+                    {"id": "15.5.3", "text": "Probar sistema de notificaciones completo", "status": "⏳"},
+                    {"id": "15.5.4", "text": "Probar sistema de emails completo", "status": "⏳"},
+                    {"id": "15.5.5", "text": "Probar multi-tenant (múltiples comunidades)", "status": "⏳"}
+                ]},
+                {"id": "15.6", "title": "15.6 Pruebas E2E (End-to-End) - Flujo Completo", "items": [
+                    {"id": "15.6.1", "text": "E2E-1: Registro con link de afiliado", "status": "❌"},
+                    {"id": "15.6.2", "text": "E2E-2: Aprobación FTD (First Time Deposit)", "status": "❌"},
+                    {"id": "15.6.3", "text": "E2E-3: Comisión CPA en XCOIN", "status": "❌"},
+                    {"id": "15.6.4", "text": "E2E-4: Formulario MT4/MT5", "status": "❌"},
+                    {"id": "15.6.5", "text": "E2E-5: Conexión Manual y Activación", "status": "❌"},
+                    {"id": "15.6.6", "text": "E2E-6: Solicitud de Retiro de XCOIN", "status": "❌"},
+                    {"id": "15.6.7", "text": "E2E-7: Procesamiento de Retiro por Admin", "status": "❌"}
+                ]},
+                {"id": "15.7", "title": "15.7 Pruebas E2E - Conectar Formularios y Botones", "items": [
+                    {"id": "15.7.1", "text": "Full-Stack: Conectar formularios de compra", "status": "❌"},
+                    {"id": "15.7.2", "text": "Full-Stack: Probar flujo de compra (Stripe)", "status": "❌"},
+                    {"id": "15.7.3", "text": "Full-Stack: Probar flujo de depósito (NOWPayments)", "status": "❌"}
+                ]}
+            ]},
+            { "id": "16", "title": "📱 16. DESARROLLO DE APPS MÓVILES", "tasks": [
+                {"id": "16.1", "title": "16.1 Infraestructura Base", "items": [
+                    {"id": "16.1.1", "text": "Configurar proyecto React Native o Flutter", "status": "❌"},
+                    {"id": "16.1.2", "text": "Configurar entorno de desarrollo (Android Studio, Xcode)", "status": "❌"},
+                    {"id": "16.1.3", "text": "Configurar autenticación móvil (Supabase Auth)", "status": "❌"},
+                    {"id": "16.1.4", "text": "Configurar API endpoints para móvil", "status": "❌"},
+                    {"id": "16.1.5", "text": "Configurar push notifications móviles", "status": "❌"},
+                    {"id": "16.1.6", "text": "Configurar deep linking", "status": "❌"}
+                ]},
+                {"id": "16.2", "title": "16.2 App Android", "items": [
+                    {"id": "16.2.1", "text": "Estructura Base", "status": "❌"},
+                    {"id": "16.2.2", "text": "Autenticación", "status": "❌"},
+                    {"id": "16.2.3", "text": "Navegación Principal", "status": "❌"},
+                    {"id": "16.2.4", "text": "Funcionalidades Core", "status": "❌"},
+                    {"id": "16.2.5", "text": "Wallet XCOIN Móvil", "status": "❌"},
+                    {"id": "16.2.6", "text": "Sistema de Afiliados Móvil", "status": "❌"},
+                    {"id": "16.2.7", "text": "Pagos Móvil", "status": "❌"},
+                    {"id": "16.2.8", "text": "Optimizaciones Android", "status": "❌"}
+                ]},
+                {"id": "16.3", "title": "16.3 App iOS (Apple)", "items": [
+                    {"id": "16.3.1", "text": "Estructura Base", "status": "❌"},
+                    {"id": "16.3.2", "text": "Autenticación", "status": "❌"},
+                    {"id": "16.3.3", "text": "Navegación Principal", "status": "❌"},
+                    {"id": "16.3.4", "text": "Funcionalidades Core", "status": "❌"},
+                    {"id": "16.3.5", "text": "Wallet XCOIN Móvil", "status": "❌"},
+                    {"id": "16.3.6", "text": "Sistema de Afiliados Móvil", "status": "❌"},
+                    {"id": "16.3.7", "text": "Pagos Móvil", "status": "❌"},
+                    {"id": "16.3.8", "text": "Optimizaciones iOS", "status": "❌"}
+                ]},
+                {"id": "16.4", "title": "16.4 Funcionalidades Compartidas (Android + iOS)", "items": [
+                    {"id": "16.4.1", "text": "Offline Mode", "status": "❌"},
+                    {"id": "16.4.2", "text": "Push Notifications", "status": "❌"},
+                    {"id": "16.4.3", "text": "Biometría", "status": "❌"},
+                    {"id": "16.4.4", "text": "Compartir Contenido", "status": "❌"},
+                    {"id": "16.4.5", "text": "Búsqueda", "status": "❌"}
+                ]},
+                {"id": "16.5", "title": "16.5 Testing y QA", "items": [
+                    {"id": "16.5.1", "text": "Tests unitarios", "status": "❌"},
+                    {"id": "16.5.2", "text": "Tests de integración", "status": "❌"},
+                    {"id": "16.5.3", "text": "Tests E2E en dispositivos reales", "status": "❌"},
+                    {"id": "16.5.4", "text": "Testing en diferentes versiones de Android/iOS", "status": "❌"},
+                    {"id": "16.5.5", "text": "Testing en diferentes tamaños de pantalla", "status": "❌"},
+                    {"id": "16.5.6", "text": "Testing de rendimiento", "status": "❌"},
+                    {"id": "16.5.7", "text": "Testing de seguridad", "status": "❌"}
+                ]},
+                {"id": "16.6", "title": "16.6 Deployment", "items": [
+                    {"id": "16.6.1", "text": "Android", "status": "❌"},
+                    {"id": "16.6.2", "text": "iOS", "status": "❌"}
+                ]},
+                {"id": "16.7", "title": "16.7 Monitoreo y Analytics", "items": [
+                    {"id": "16.7.1", "text": "Integrar Firebase Analytics", "status": "❌"},
+                    {"id": "16.7.2", "text": "Integrar Crashlytics", "status": "❌"},
+                    {"id": "16.7.3", "text": "Monitoreo de rendimiento", "status": "❌"},
+                    {"id": "16.7.4", "text": "Tracking de eventos de usuario", "status": "❌"},
+                    {"id": "16.7.5", "text": "Reportes de errores", "status": "❌"}
+                ]}
+            ]},
+            { "id": "17", "title": "🛠️ 17. HERRAMIENTAS Y FUNCIONALIDADES ESPECIALES", "tasks": [
+                {"id": "17.1", "title": "17.1 Alpha X100", "items": [
+                    {"id": "17.1.1", "text": "Panel de administración", "status": "✅"},
+                    {"id": "17.1.2", "text": "Sistema de tokens", "status": "✅"},
+                    {"id": "17.1.3", "text": "Restricciones por suscripción implementadas", "status": "✅"},
+                    {"id": "17.1.4", "text": "Verificar que las restricciones funcionan correctamente", "status": "⏳"}
+                ]},
+                {"id": "17.2", "title": "17.2 Trading Lab", "items": [
+                    {"id": "17.2.1", "text": "Implementado", "status": "✅"},
+                    {"id": "17.2.2", "text": "Agregar restricciones por suscripción/niveles", "status": "⏳"},
+                    {"id": "17.2.3", "text": "Verificar funcionamiento", "status": "⏳"}
+                ]},
+                {"id": "17.3", "title": "17.3 Crypto Health Scanner", "items": [
+                    {"id": "17.3.1", "text": "Implementado", "status": "✅"},
+                    {"id": "17.3.2", "text": "Agregar restricciones por suscripción/niveles", "status": "⏳"},
+                    {"id": "17.3.3", "text": "Verificar funcionamiento", "status": "⏳"}
+                ]},
+                {"id": "17.4", "title": "17.4 Otras Herramientas", "items": [
+                    {"id": "17.4.1", "text": "Verificar que todas las herramientas funcionan correctamente", "status": "⏳"},
+                    {"id": "17.4.2", "text": "Agregar restricciones donde sea necesario", "status": "⏳"},
+                    {"id": "17.4.3", "text": "Optimizar rendimiento", "status": "⏳"}
+                ]}
+            ]},
+            { "id": "18", "title": "🌐 18. SISTEMA WHITE-LABEL", "tasks": [
+                {"id": "18.1", "title": "18.1 Dominios Personalizados", "items": [
+                    {"id": "18.1.1", "text": "Tabla `dominios_white_label`", "status": "✅"},
+                    {"id": "18.1.2", "text": "API de verificación de nameservers", "status": "✅"},
+                    {"id": "18.1.3", "text": "Panel admin para gestión de dominios", "status": "✅"},
+                    {"id": "18.1.4", "text": "Sistema de detección automática de comunidad por dominio", "status": "✅"},
+                    {"id": "18.1.5", "text": "Mantener dominio en navegación después de detectarlo", "status": "⏳"},
+                    {"id": "18.1.6", "text": "Configurar SSL automático", "status": "⏳"},
+                    {"id": "18.1.7", "text": "Verificar que el sistema funciona correctamente", "status": "⏳"}
+                ]},
+                {"id": "18.2", "title": "18.2 Configuración Multi-Tenant", "items": [
+                    {"id": "18.2.1", "text": "Sistema de comunidades independientes", "status": "✅"},
+                    {"id": "18.2.2", "text": "Configuración por comunidad", "status": "✅"},
+                    {"id": "18.2.3", "text": "Completar migración de `community_id` en todas las tablas", "status": "⏳"},
+                    {"id": "18.2.4", "text": "Verificar aislamiento de datos entre comunidades", "status": "⏳"}
+                ]}
+            ]},
+            { "id": "19", "title": "📊 19. ANALYTICS Y REPORTES", "tasks": [
+                {"id": "19.1", "title": "19.1 Dashboard de Métricas", "items": [
+                    {"id": "19.1.1", "text": "Estadísticas básicas en paneles admin", "status": "✅"},
+                    {"id": "19.1.2", "text": "Dashboard con gráficos interactivos", "status": "⏳"},
+                    {"id": "19.1.3", "text": "Reportes personalizables", "status": "⏳"},
+                    {"id": "19.1.4", "text": "Exportar datos (CSV, PDF)", "status": "⏳"},
+                    {"id": "19.1.5", "text": "Análisis de cohortes", "status": "⏳"}
+                ]},
+                {"id": "19.2", "title": "19.2 Métricas de Afiliados", "items": [
+                    {"id": "19.2.1", "text": "Dashboard de afiliados con métricas básicas", "status": "✅"},
+                    {"id": "19.2.2", "text": "Gráficos avanzados", "status": "⏳"},
+                    {"id": "19.2.3", "text": "Reportes detallados", "status": "⏳"},
+                    {"id": "19.2.4", "text": "Exportar reportes", "status": "⏳"}
+                ]}
+            ]},
+            { "id": "20", "title": "🐛 20. ERRORES CONOCIDOS Y CORRECCIONES PENDIENTES", "tasks": [
+                {"id": "20.1", "title": "20.1 Errores Críticos", "items": [
+                    {"id": "20.1.1", "text": "Registro no crea usuario en tabla usuarios", "status": "⏳"},
+                    {"id": "20.1.2", "text": "Sistema de afiliados no registra clicks ni leads", "status": "⏳"},
+                    {"id": "20.1.3", "text": "Ventas falsas automáticas", "status": "⏳"},
+                    {"id": "20.1.4", "text": "Tracking incompleto", "status": "⏳"},
+                    {"id": "20.1.5", "text": "Botones de pago no funcionan", "status": "⏳"}
+                ]},
+                {"id": "20.2", "title": "20.2 Errores de Integración", "items": [
+                    {"id": "20.2.1", "text": "Webhooks no crean ventas correctamente", "status": "⏳"},
+                    {"id": "20.2.2", "text": "Comisiones no se asignan automáticamente", "status": "⏳"},
+                    {"id": "20.2.3", "text": "Notificaciones no se envían", "status": "⏳"},
+                    {"id": "20.2.4", "text": "Emails no se envían", "status": "⏳"}
+                ]},
+                {"id": "20.3", "title": "20.3 Errores de UI/UX", "items": [
+                    {"id": "20.3.1", "text": "Dominios white-label no se mantienen después de login", "status": "⏳"},
+                    {"id": "20.3.2", "text": "Restricciones no se muestran visualmente", "status": "⏳"},
+                    {"id": "20.3.3", "text": "Mensajes de error poco claros", "status": "⏳"}
+                ]}
+            ]},
+            { "id": "21", "title": "🚀 21. OPTIMIZACIONES Y MEJORAS", "tasks": [
+                {"id": "21.1", "title": "21.1 Performance", "items": [
+                    {"id": "21.1.1", "text": "Optimizar consultas SQL", "status": "⏳"},
+                    {"id": "21.1.2", "text": "Implementar caching", "status": "⏳"},
+                    {"id": "21.1.3", "text": "Optimizar carga de imágenes", "status": "⏳"},
+                    {"id": "21.1.4", "text": "Optimizar carga de componentes", "status": "⏳"}
+                ]},
+                {"id": "21.2", "title": "21.2 Código", "items": [
+                    {"id": "21.2.1", "text": "Eliminar código duplicado", "status": "⏳"},
+                    {"id": "21.2.2", "text": "Mejorar manejo de errores", "status": "⏳"},
+                    {"id": "21.2.3", "text": "Agregar tests automatizados", "status": "⏳"},
+                    {"id": "21.2.4", "text": "Mejorar documentación del código", "status": "⏳"}
+                ]},
+                {"id": "21.3", "title": "21.3 UX/UI", "items": [
+                    {"id": "21.3.1", "text": "Mejorar mensajes de error", "status": "⏳"},
+                    {"id": "21.3.2", "text": "Agregar loading states", "status": "⏳"},
+                    {"id": "21.3.3", "text": "Mejorar feedback visual", "status": "⏳"},
+                    {"id": "21.3.4", "text": "Optimizar responsive design", "status": "⏳"}
+                ]}
+            ]},
+            { "id": "22", "title": "📝 22. DOCUMENTACIÓN", "tasks": [
+                {"id": "22.1", "title": "22.1 Documentación Técnica", "items": [
+                    {"id": "22.1.1", "text": "Guía de onboarding para desarrolladores", "status": "✅"},
+                    {"id": "22.1.2", "text": "Análisis completo del proyecto", "status": "✅"},
+                    {"id": "22.1.3", "text": "Documentación de arquitectura", "status": "✅"},
+                    {"id": "22.1.4", "text": "Documentación de APIs", "status": "⏳"},
+                    {"id": "22.1.5", "text": "Documentación de base de datos", "status": "⏳"},
+                    {"id": "22.1.6", "text": "Diagramas de flujo", "status": "⏳"}
+                ]},
+                {"id": "22.2", "title": "22.2 Documentación de Usuario", "items": [
+                    {"id": "22.2.1", "text": "Guías de usuario", "status": "❌"},
+                    {"id": "22.2.2", "text": "Tutoriales en video", "status": "❌"},
+                    {"id": "22.2.3", "text": "FAQ interactivo", "status": "❌"},
+                    {"id": "22.2.4", "text": "Documentación de funcionalidades", "status": "❌"}
+                ]}
+            ]}
+        ];
+
+        // --- Funciones de Inicialización ---
+
+        async function startApp() {
+            try {
+                // 1. Inicializar Firebase
+                if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+                    showMessage("Error: Configuración de Firebase incompleta.");
+                    loadingSpinner.classList.add('hidden');
+                    return;
+                }
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                setLogLevel('Debug');
+                
+                // --- LÓGICA DE LOGIN CON GOOGLE ---
+                loadingText.textContent = "Verificando autenticación...";
+                // Mostrar spinner y ocultar todo
+                loadingSpinner.classList.remove('hidden');
+                loginContainer.classList.add('hidden');
+                mainAppContainer.classList.add('hidden');
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        // Usuario está logueado
+                        userId = user.uid;
+                        console.log("Usuario conectado:", user.displayName, userId);
+                        
+                        // Mostrar estado en la app principal
+                        authStatusMain.textContent = `Conectado: ${user.displayName}`;
+                        authStatusMain.classList.remove('text-yellow-400');
+                        authStatusMain.classList.add('text-green-400');
+                        
+                        // Ocultar login, mostrar app y spinner (mientras cargan datos)
+                        loginContainer.classList.add('hidden');
+                        mainAppContainer.classList.remove('hidden');
+                        loadingSpinner.classList.remove('hidden'); // Spinner para datos
+                        loadingText.textContent = "Cargando proyecto...";
+                        
+                        // 3. Una vez autenticado, configurar la referencia y escuchar cambios
+                        setupFirestoreListener();
+                    } else {
+                        // Usuario no está logueado
+                        console.log("Usuario no conectado.");
+                        // Mostrar pantalla de login, ocultar app y spinner
+                        loginContainer.classList.remove('hidden');
+                        mainAppContainer.classList.add('hidden');
+                        loadingSpinner.classList.add('hidden');
+                        authStatusLogin.textContent = "Desconectado";
+                    }
+                });
+
+            } catch (error) {
+                console.error("Error al inicializar Firebase:", error);
+                showMessage(`Error al inicializar: ${error.message}`);
+                loadingSpinner.classList.add('hidden');
+            }
+        }
+
+        // --- NUEVA: Función de Login con Google ---
+        async function handleGoogleLogin() {
+            const provider = new GoogleAuthProvider();
+            try {
+                loadingSpinner.classList.remove('hidden');
+                loadingText.textContent = "Abriendo ventana de Google...";
+                await signInWithPopup(auth, provider);
+                // onAuthStateChanged se encargará del resto
+            } catch (error) {
+                console.error("Error al iniciar sesión con Google:", error);
+                // Si el error es por dominio no autorizado, da un mensaje claro
+                if (error.code === 'auth/unauthorized-domain') {
+                    showMessage("Error: Este dominio no está autorizado para iniciar sesión. Debes añadirlo a la lista de 'Dominios autorizados' en tu consola de Firebase (Authentication -> Sign-in method).");
+                } else {
+                    showMessage(`Error al iniciar sesión: ${error.message}`);
+                }
+                loadingSpinner.classList.add('hidden');
+            }
+        }
+
+
+        // --- MODIFICADA: Vuelve a la versión de UN SOLO PROYECTO ---
+        function setupFirestoreListener() {
+            try {
+                // Esta es la ruta original de un solo proyecto
+                const docPath = `artifacts/${appId}/public/data/projects/scalexone`;
+                projectDocRef = doc(db, docPath);
+
+                // Escuchar cambios en tiempo real para ESE proyecto
+                onSnapshot(projectDocRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        projectData = JSON.parse(data.content || "[]");
+                        priorityTasks = JSON.parse(data.priorities || "[]");
+                        console.log("Datos cargados desde Firestore para el proyecto: scalexone");
+                    } else {
+                        // El documento no existe, crear con datos iniciales
+                        console.log("El documento del proyecto no existe, creando uno nuevo...");
+                        projectData = initialProjectData;
+                        priorityTasks = [];
+                        saveInitialData(); // Guardará en el projectDocRef actual
+                    }
+                    // Renderizar la UI con los datos
+                    renderProject();
+                    renderPriorityTasks();
+                    loadingSpinner.classList.add('hidden');
+                }, (error) => {
+                    console.error("Error en onSnapshot (proyecto):", error);
+                    showMessage(`Error al sincronizar datos: ${error.message}`);
+                    loadingSpinner.classList.add('hidden');
+                });
+                
+            } catch (error) {
+                console.error("Error al configurar Firestore:", error);
+                showMessage(`Error de configuración: ${error.message}`);
+                loadingSpinner.classList.add('hidden');
+            }
+        }
+        
+        async function saveInitialData() {
+            if (!projectDocRef) return;
+            try {
+                await setDoc(projectDocRef, {
+                    projectName: "SCALEXONE", // Añadir un nombre por defecto
+                    content: JSON.stringify(projectData),
+                    priorities: JSON.stringify(priorityTasks) 
+                }, { merge: true });
+                console.log("Proyecto inicial guardado.");
+            } catch (error) {
+                console.error("Error al guardar datos iniciales:", error);
+                showMessage(`Error al guardar: ${error.message}`);
+            }
+        }
+
+        function renderProject() {
+            const projectContainer = document.getElementById('project-container');
+            if (!projectContainer) return;
+            savedScrollY = window.scrollY;
+            projectContainer.innerHTML = ''; 
+
+            if (projectData.length === 0) {
+                projectContainer.innerHTML = '<p class="text-gray-400">Este proyecto está vacío. Los datos pueden estar cargando.</p>';
+                return;
+            }
+
+            projectData.forEach(section => {
+                const sectionEl = document.createElement('div');
+                sectionEl.className = 'bg-gray-800 rounded-lg shadow-md overflow-hidden';
+                
+                const sectionHeader = document.createElement('h2');
+                sectionHeader.className = 'text-2xl font-bold text-white p-4 bg-gray-800 border-b border-gray-700 accordion-header flex justify-between items-center';
+                
+                const sectionTitleDiv = document.createElement('div');
+                const sectionArrow = document.createElement('span');
+                sectionArrow.className = 'accordion-arrow';
+                sectionArrow.textContent = '▶';
+                
+                sectionTitleDiv.appendChild(sectionArrow);
+                sectionTitleDiv.appendChild(document.createTextNode(section.title));
+                sectionHeader.appendChild(sectionTitleDiv);
+
+                const sectionHasNotes = section.tasks.some(sub => 
+                    sub.items.some(item => item.note && item.note.trim() !== '')
+                );
+                if (sectionHasNotes) {
+                    const noteIndicator = document.createElement('span');
+                    noteIndicator.className = 'text-xl text-blue-400 mr-2';
+                    noteIndicator.textContent = '💬';
+                    sectionHeader.appendChild(noteIndicator);
+                }
+                sectionEl.appendChild(sectionHeader);
+
+                const tasksContainer = document.createElement('div');
+                tasksContainer.className = 'p-4 space-y-4';
+                
+                if (openAccordions.has(section.id)) {
+                    tasksContainer.classList.remove('hidden');
+                    sectionHeader.classList.add('open');
+                    sectionArrow.textContent = '▼';
+                } else {
+                    tasksContainer.classList.add('hidden');
+                    sectionArrow.textContent = '▶';
+                }
+                
+                sectionHeader.onclick = () => {
+                    sectionHeader.classList.toggle('open');
+                    tasksContainer.classList.toggle('hidden');
+                    sectionArrow.textContent = tasksContainer.classList.contains('hidden') ? '▶' : '▼';
+                    
+                    if (tasksContainer.classList.contains('hidden')) {
+                        openAccordions.delete(section.id);
+                    } else {
+                        openAccordions.add(section.id);
+                    }
+                };
+
+                section.tasks.forEach(subsection => {
+                    const subsectionEl = document.createElement('div');
+                    subsectionEl.className = 'pl-4 border-l-2 border-gray-700';
+                    
+                    const subsectionTitle = document.createElement('h3');
+                    subsectionTitle.className = 'text-lg font-semibold text-blue-300 mb-2 accordion-header flex justify-between items-center p-2 rounded-md';
+                    
+                    const subsectionTitleDiv = document.createElement('div');
+                    const subsectionArrow = document.createElement('span');
+                    subsectionArrow.className = 'accordion-arrow';
+                    subsectionArrow.textContent = '▶';
+
+                    subsectionTitleDiv.appendChild(subsectionArrow);
+                    subsectionTitleDiv.appendChild(document.createTextNode(subsection.title));
+                    subsectionTitle.appendChild(subsectionTitleDiv);
+
+                    const subsectionHasNotes = subsection.items.some(item => item.note && item.note.trim() !== '');
+                    if (subsectionHasNotes) {
+                        const noteIndicator = document.createElement('span');
+                        noteIndicator.className = 'text-lg text-blue-400 mr-2';
+                        noteIndicator.textContent = '💬';
+                        subsectionTitle.appendChild(noteIndicator);
+                    }
+                    subsectionEl.appendChild(subsectionTitle);
+
+                    const itemsList = document.createElement('ul');
+                    itemsList.className = 'space-y-2 pl-6';
+
+                    if (openAccordions.has(subsection.id)) {
+                        itemsList.classList.remove('hidden');
+                        subsectionTitle.classList.add('open');
+                        subsectionArrow.textContent = '▼';
+                    } else {
+                        itemsList.classList.add('hidden');
+                        subsectionArrow.textContent = '▶';
+                    }
+
+                    subsectionTitle.onclick = (e) => {
+                        e.stopPropagation();
+                        subsectionTitle.classList.toggle('open');
+                        itemsList.classList.toggle('hidden');
+                        subsectionArrow.textContent = itemsList.classList.contains('hidden') ? '▶' : '▼';
+                        
+                        if (itemsList.classList.contains('hidden')) {
+                            openAccordions.delete(subsection.id);
+                        } else {
+                            openAccordions.add(subsection.id);
+                        }
+                    };
+
+                    subsection.items.forEach(item => {
+                        const itemEl = document.createElement('li');
+                        itemEl.className = 'block p-2 rounded-md hover:bg-gray-700 transition-colors duration-150 task-item';
+                        itemEl.dataset.status = item.status;
+
+                        const mainItemRow = document.createElement('div');
+                        mainItemRow.className = 'flex items-center justify-between';
+
+                        const itemContent = document.createElement('div');
+                        itemContent.className = 'flex items-center flex-grow min-w-0';
+
+                        const statusIcon = document.createElement('span');
+                        statusIcon.className = 'status-icon cursor-pointer text-xl mr-3';
+                        statusIcon.textContent = item.status;
+                        statusIcon.dataset.sectionId = section.id;
+                        statusIcon.dataset.subsectionId = subsection.id;
+                        statusIcon.dataset.itemId = item.id;
+                        statusIcon.onclick = handleStatusClick;
+
+                        const itemText = document.createElement('span');
+                        itemText.className = 'flex-grow truncate';
+                        itemText.textContent = item.text;
+
+                        itemContent.appendChild(statusIcon);
+                        itemContent.appendChild(itemText);
+
+                        const noteIcon = document.createElement('span');
+                        noteIcon.className = 'note-icon cursor-pointer text-lg ml-3 text-gray-500 hover:text-blue-400 flex-shrink-0';
+                        noteIcon.textContent = '💬';
+                        noteIcon.dataset.sectionId = section.id;
+                        noteIcon.dataset.subsectionId = subsection.id;
+                        noteIcon.dataset.itemId = item.id;
+                        noteIcon.onclick = handleNoteClick;
+
+                        mainItemRow.appendChild(itemContent);
+                        mainItemRow.appendChild(noteIcon);
+                        
+                        itemEl.appendChild(mainItemRow);
+
+                        if (item.note && item.note.trim() !== '') {
+                            const noteContent = document.createElement('div');
+                            noteContent.className = 'note-display p-2 mt-2 ml-10 bg-gray-700 rounded-md text-sm text-gray-300';
+                            noteContent.innerHTML = linkify(item.note);
+
+                            noteContent.classList.add('cursor-pointer', 'hover:bg-gray-600', 'transition-colors');
+                            noteContent.dataset.sectionId = section.id;
+                            noteContent.dataset.subsectionId = subsection.id;
+                            noteContent.dataset.itemId = item.id;
+                            noteContent.onclick = handleNoteClick;
+                            
+                            itemEl.appendChild(noteContent);
+                            noteIcon.classList.add('has-note');
+                        } else {
+                            noteIcon.classList.remove('has-note');
+                        }
+                        itemsList.appendChild(itemEl);
+                    });
+
+                    subsectionEl.appendChild(itemsList);
+                    tasksContainer.appendChild(subsectionEl);
+                });
+
+                sectionEl.appendChild(tasksContainer);
+                projectContainer.appendChild(sectionEl);
+            });
+            
+            requestAnimationFrame(() => {
+                window.scrollTo(0, savedScrollY);
+            });
+        }
+
+        function renderPriorityTasks() {
+            const priorityListEl = document.getElementById('priority-list');
+            if (!priorityListEl) return;
+            
+            priorityListEl.innerHTML = '';
+            
+            if (priorityTasks.length === 0) {
+                priorityListEl.innerHTML = '<li class="text-gray-500 italic">No hay tareas prioritarias.</li>';
+                return;
+            }
+
+            priorityTasks.forEach((task, index) => {
+                const li = document.createElement('li');
+                li.className = 'block p-2 rounded-md hover:bg-gray-700 transition-colors duration-150 task-item';
+                li.dataset.status = task.status;
+
+                const mainItemRow = document.createElement('div');
+                mainItemRow.className = 'flex items-center justify-between';
+
+                const itemContent = document.createElement('div');
+                itemContent.className = 'flex items-center flex-grow min-w-0';
+
+                const statusIcon = document.createElement('span');
+                statusIcon.className = 'status-icon cursor-pointer text-xl mr-3';
+                statusIcon.textContent = task.status;
+                statusIcon.dataset.index = index;
+                statusIcon.onclick = handlePriorityStatusClick;
+
+                const itemText = document.createElement('span');
+                itemText.className = 'flex-grow truncate';
+                itemText.textContent = task.text;
+
+                itemContent.appendChild(statusIcon);
+                itemContent.appendChild(itemText);
+                mainItemRow.appendChild(itemContent);
+
+                const itemControls = document.createElement('div');
+                itemControls.className = 'flex items-center flex-shrink-0 ml-3';
+
+                const noteIcon = document.createElement('span');
+                noteIcon.className = 'note-icon cursor-pointer text-lg text-gray-500 hover:text-blue-400';
+                noteIcon.textContent = '💬';
+                noteIcon.dataset.index = index;
+                noteIcon.onclick = handlePriorityNoteClick;
+                itemControls.appendChild(noteIcon);
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'text-red-400 hover:text-red-500 text-2xl font-bold ml-3 px-2';
+                deleteBtn.innerHTML = '&times;';
+                deleteBtn.dataset.index = index;
+                deleteBtn.onclick = handleDeletePriority;
+                itemControls.appendChild(deleteBtn);
+                
+                mainItemRow.appendChild(itemControls);
+                li.appendChild(mainItemRow);
+
+                if (task.note && task.note.trim() !== '') {
+                    const noteContent = document.createElement('div');
+                    noteContent.className = 'note-display p-2 mt-2 ml-10 bg-gray-700 rounded-md text-sm text-gray-300';
+                    noteContent.innerHTML = linkify(task.note);
+
+                    noteContent.classList.add('cursor-pointer', 'hover:bg-gray-600', 'transition-colors');
+                    noteContent.dataset.index = index;
+                    noteContent.onclick = handlePriorityNoteClick;
+                    
+                    li.appendChild(noteContent);
+                    noteIcon.classList.add('has-note');
+                } else {
+                    noteIcon.classList.remove('has-note');
+                }
+
+                priorityListEl.appendChild(li);
+            });
+        }
+        
+        const styleSheet = document.createElement("style");
+        styleSheet.type = "text/css";
+        styleSheet.innerText = `
+            @keyframes fade-in {
+                from { opacity: 0; transform: translateY(-5px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            .animate-fade-in { animation: fade-in 0.3s ease-out; }
+        `;
+        document.head.appendChild(styleSheet);
+
+        function handleStatusClick(event) {
+            const { sectionId, subsectionId, itemId } = event.currentTarget.dataset;
+            
+            const item = findItem({ sectionId, subsectionId, itemId });
+            if (!item) return;
+
+            switch (item.status) {
+                case '❌': item.status = '⏳'; break;
+                case '⏳': item.status = '✅'; break;
+                case '✅': item.status = '❌'; break;
+                default: item.status = '❌';
+            }
+            saveCoreProjectData();
+        }
+        
+        function handleNoteClick(event) {
+            event.stopPropagation();
+            const { sectionId, subsectionId, itemId } = event.currentTarget.dataset;
+            
+            currentEditingItem = { sectionId, subsectionId, itemId };
+            
+            const item = findItem(currentEditingItem);
+            if (item) {
+                noteTextarea.value = item.note || '';
+                noteModal.classList.remove('hidden');
+            }
+        }
+
+        function saveNote() {
+            if (!currentEditingItem && currentEditingPriorityItemIndex === null) return;
+
+            if (currentEditingPriorityItemIndex !== null) {
+                const index = currentEditingPriorityItemIndex;
+                if (priorityTasks[index]) {
+                    priorityTasks[index].note = noteTextarea.value;
+                    savePriorityTasks();
+                }
+            } 
+            else if (currentEditingItem) {
+                const item = findItem(currentEditingItem);
+                if (item) {
+                    item.note = noteTextarea.value;
+                    saveCoreProjectData();
+                }
+            }
+            
+            hideNoteModal();
+        }
+
+        function hideNoteModal() {
+            noteModal.classList.add('hidden');
+            currentEditingItem = null;
+            currentEditingPriorityItemIndex = null;
+            noteTextarea.value = '';
+        }
+
+        function findItem({ sectionId, subsectionId, itemId }) {
+            const section = projectData.find(s => s.id === sectionId);
+            if (!section) return null;
+            const subsection = section.tasks.find(s => s.id === subsectionId);
+            if (!subsection) return null;
+            return subsection.items.find(i => i.id === itemId);
+        }
+
+        async function saveCoreProjectData() {
+            if (!projectDocRef) return;
+            try {
+                await setDoc(projectDocRef, { content: JSON.stringify(projectData) }, { merge: true });
+                console.log("Proyecto guardado en Firestore.");
+            } catch (error) {
+                console.error("Error al guardar en Firestore:", error);
+                showMessage(`Error al guardar: ${error.message}`);
+            }
+        }
+        
+        function handleAddPriority() {
+            const input = document.getElementById('priority-input');
+            const text = input.value.trim();
+            if (text === '') return;
+            
+            priorityTasks.push({ 
+                id: crypto.randomUUID(), 
+                text: text,
+                status: '❌',
+                note: ''
+            });
+            input.value = '';
+            
+            savePriorityTasks(); 
+        }
+
+        function handleDeletePriority(event) {
+            try {
+                const index = parseInt(event.currentTarget.dataset.index, 10);
+                if (isNaN(index) || index < 0 || index >= priorityTasks.length) {
+                    console.error("Índice de prioridad inválido:", event.currentTarget.dataset.index);
+                    return;
+                }
+                
+                priorityTasks.splice(index, 1);
+                
+                savePriorityTasks();
+            } catch (error) {
+                console.error("Error al eliminar prioridad:", error);
+                showMessage("Error al eliminar la tarea.");
+            }
+        }
+
+        async function savePriorityTasks() {
+            if (!projectDocRef) return;
+            try {
+                await setDoc(projectDocRef, { priorities: JSON.stringify(priorityTasks) }, { merge: true });
+                console.log("Prioridades guardadas en Firestore.");
+            } catch (error) {
+                console.error("Error al guardar prioridades en Firestore:", error);
+                showMessage(`Error al guardar prioridades: ${error.message}`);
+            }
+        }
+        
+        function handlePriorityStatusClick(event) {
+            event.stopPropagation();
+            const index = parseInt(event.currentTarget.dataset.index, 10);
+            if (isNaN(index) || !priorityTasks[index]) return;
+
+            const task = priorityTasks[index];
+            
+            switch (task.status) {
+                case '❌': task.status = '⏳'; break;
+                case '⏳': task.status = '✅'; break;
+                case '✅': task.status = '❌'; break;
+                default: task.status = '❌';
+            }
+            savePriorityTasks();
+        }
+
+        function handlePriorityNoteClick(event) {
+            event.stopPropagation();
+            const index = parseInt(event.currentTarget.dataset.index, 10);
+            if (isNaN(index) || !priorityTasks[index]) return;
+
+            currentEditingPriorityItemIndex = index;
+            currentEditingItem = null;
+            
+            const task = priorityTasks[index];
+            noteTextarea.value = task.note || '';
+            noteModal.classList.remove('hidden');
+        }
+
+        const messageModal = document.getElementById('message-modal');
+        const messageText = document.getElementById('message-text');
+
+        function showMessage(message) {
+            messageText.textContent = message;
+            messageModal.classList.remove('hidden');
+        }
+
+        function hideMessage() {
+            messageModal.classList.add('hidden');
+        }
+        
+        function linkify(text) {
+            if (!text) return '';
+            
+            const urlRegex = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])|(\bwww\.[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig;
+            
+            const escapedText = document.createElement('div').appendChild(document.createTextNode(text)).parentNode.innerHTML;
+
+            return escapedText.replace(urlRegex, function(url, match1, protocol, match2) {
+                let fullUrl = url;
+                if (match2) {
+                    fullUrl = 'http://' + url; // <-- CORREGIDO AQUÍ
+                }
+                return `<a href="${fullUrl}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+            }).replace(/\n/g, '<br>');
+        }
+
+        window.hideMessage = hideMessage;
+
+        // --- Iniciar la aplicación ---
+        startApp();
+
+        // --- Asignar Eventos a Botones ---
+        saveNoteBtn.onclick = saveNote;
+        cancelNoteBtn.onclick = hideNoteModal;
+        googleLoginBtn.onclick = handleGoogleLogin; // Asignar evento al botón de login
+
+        document.getElementById('add-priority-btn').onclick = handleAddPriority;
+        window.handleDeletePriority = handleDeletePriority;
+        window.handlePriorityStatusClick = handlePriorityStatusClick;
+        window.handlePriorityNoteClick = handlePriorityNoteClick;
+
+    </script>
+</body>
+</html>

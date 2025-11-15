@@ -98,7 +98,21 @@
         <!-- Contenedor Principal -->
         <div class="container mx-auto p-4 md:p-8 max-w-7xl">
             <header class="flex flex-col md:flex-row justify-between items-center mb-6 pb-4 border-b border-gray-700">
-                <h1 id="project-title" class="text-3xl font-bold text-white mb-2 md:mb-0">📋 Gestor de Proyecto: SCALEXONE</h1>
+                <div class="flex flex-col md:flex-row items-center gap-4 mb-2 md:mb-0">
+                    <h1 class="text-3xl font-bold text-white">📋 Gestor de Proyectos</h1>
+                    <!-- Selector de Proyectos -->
+                    <div class="flex items-center gap-2">
+                        <select id="project-selector" class="bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
+                            <option value="">Cargando proyectos...</option>
+                        </select>
+                        <button id="new-project-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg text-sm">
+                            + Nuevo
+                        </button>
+                        <button id="delete-project-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg text-sm hidden">
+                            🗑️ Eliminar
+                        </button>
+                    </div>
+                </div>
                 <div class="text-sm text-gray-400">
                     Estado: <span id="auth-status-main" class="font-semibold text-green-400">Conectado</span>
                 </div>
@@ -165,6 +179,29 @@
         </div>
     </div>
 
+    <!-- Modal de Nuevo Proyecto -->
+    <div id="new-project-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center z-40 hidden">
+        <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-md mx-auto w-full">
+            <h3 class="text-xl font-semibold text-white mb-4">Crear Nuevo Proyecto</h3>
+            <div class="mb-4">
+                <label class="block text-gray-300 mb-2">Nombre del Proyecto</label>
+                <input id="new-project-name" type="text" class="w-full p-2 rounded-md bg-gray-700 text-gray-100 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ej: Mi Proyecto">
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-300 mb-2">Descripción (opcional)</label>
+                <textarea id="new-project-description" rows="3" class="w-full p-2 rounded-md bg-gray-700 text-gray-100 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Descripción del proyecto"></textarea>
+            </div>
+            <div class="flex justify-end space-x-3 mt-4">
+                <button id="cancel-new-project-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-5 rounded-lg">
+                    Cancelar
+                </button>
+                <button id="create-project-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg">
+                    Crear Proyecto
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Script de Firebase -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -180,6 +217,10 @@
             getDoc, 
             setDoc, 
             onSnapshot,
+            collection,
+            getDocs,
+            query,
+            deleteDoc,
             setLogLevel
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
@@ -199,6 +240,8 @@
         let db, auth;
         let userId = null;
         let projectDocRef = null; 
+        let currentProjectId = null; // ID del proyecto actualmente seleccionado
+        let projectsListRef = null; // Referencia a la colección de proyectos
         
         let projectData = []; 
         let priorityTasks = []; 
@@ -214,12 +257,20 @@
         const googleLoginBtn = document.getElementById('google-login-btn');
         const authStatusLogin = document.getElementById('auth-status-login');
         const authStatusMain = document.getElementById('auth-status-main');
+        const projectSelector = document.getElementById('project-selector');
+        const newProjectBtn = document.getElementById('new-project-btn');
+        const deleteProjectBtn = document.getElementById('delete-project-btn');
 
         // --- Elementos de Modales ---
         const noteModal = document.getElementById('note-modal');
         const noteTextarea = document.getElementById('note-textarea');
         const saveNoteBtn = document.getElementById('save-note-btn');
         const cancelNoteBtn = document.getElementById('cancel-note-btn');
+        const newProjectModal = document.getElementById('new-project-modal');
+        const newProjectNameInput = document.getElementById('new-project-name');
+        const newProjectDescriptionInput = document.getElementById('new-project-description');
+        const createProjectBtn = document.getElementById('create-project-btn');
+        const cancelNewProjectBtn = document.getElementById('cancel-new-project-btn');
         let currentEditingItem = null;
         let currentEditingPriorityItemIndex = null;
 
@@ -948,11 +999,98 @@
         }
 
 
-        // --- MODIFICADA: Vuelve a la versión de UN SOLO PROYECTO ---
-        function setupFirestoreListener() {
+        // --- NUEVA: Cargar lista de proyectos ---
+        async function loadProjectsList() {
             try {
-                // Esta es la ruta original de un solo proyecto
-                const docPath = `artifacts/${appId}/public/data/projects/scalexone`;
+                const projectsPath = `artifacts/${appId}/public/data/projects`;
+                projectsListRef = collection(db, projectsPath);
+                
+                const querySnapshot = await getDocs(projectsListRef);
+                const projects = [];
+                
+                querySnapshot.forEach((docSnap) => {
+                    const data = docSnap.data();
+                    projects.push({
+                        id: docSnap.id,
+                        name: data.projectName || docSnap.id,
+                        description: data.description || ''
+                    });
+                });
+                
+                // Ordenar por nombre
+                projects.sort((a, b) => a.name.localeCompare(b.name));
+                
+                // Actualizar selector
+                projectSelector.innerHTML = '';
+                if (projects.length === 0) {
+                    projectSelector.innerHTML = '<option value="">No hay proyectos</option>';
+                    // Si no hay proyectos, crear uno por defecto
+                    await createDefaultProject();
+                    return;
+                }
+                
+                projects.forEach(project => {
+                    const option = document.createElement('option');
+                    option.value = project.id;
+                    option.textContent = project.name;
+                    projectSelector.appendChild(option);
+                });
+                
+                // Si hay un proyecto guardado en localStorage, seleccionarlo
+                const savedProjectId = localStorage.getItem('lastSelectedProject');
+                if (savedProjectId && projects.find(p => p.id === savedProjectId)) {
+                    projectSelector.value = savedProjectId;
+                    loadProject(savedProjectId);
+                } else if (projects.length > 0) {
+                    // Seleccionar el primer proyecto
+                    projectSelector.value = projects[0].id;
+                    loadProject(projects[0].id);
+                }
+                
+            } catch (error) {
+                console.error("Error al cargar lista de proyectos:", error);
+                showMessage(`Error al cargar proyectos: ${error.message}`);
+            }
+        }
+
+        // --- NUEVA: Crear proyecto por defecto (migración) ---
+        async function createDefaultProject() {
+            try {
+                const defaultProjectId = 'scalexone';
+                const docPath = `artifacts/${appId}/public/data/projects/${defaultProjectId}`;
+                const defaultDocRef = doc(db, docPath);
+                
+                const docSnap = await getDoc(defaultDocRef);
+                if (!docSnap.exists()) {
+                    await setDoc(defaultDocRef, {
+                        projectName: "SCALEXONE",
+                        description: "Proyecto principal de SCALEXONE",
+                        content: JSON.stringify(initialProjectData),
+                        priorities: JSON.stringify([]),
+                        createdAt: new Date().toISOString()
+                    });
+                    console.log("Proyecto por defecto creado");
+                }
+                
+                // Recargar lista
+                await loadProjectsList();
+            } catch (error) {
+                console.error("Error al crear proyecto por defecto:", error);
+            }
+        }
+
+        // --- NUEVA: Cargar un proyecto específico ---
+        function loadProject(projectId) {
+            if (!projectId) return;
+            
+            currentProjectId = projectId;
+            localStorage.setItem('lastSelectedProject', projectId);
+            
+            // Mostrar botón de eliminar
+            deleteProjectBtn.classList.remove('hidden');
+            
+            try {
+                const docPath = `artifacts/${appId}/public/data/projects/${projectId}`;
                 projectDocRef = doc(db, docPath);
 
                 // Escuchar cambios en tiempo real para ESE proyecto
@@ -961,13 +1099,20 @@
                         const data = docSnap.data();
                         projectData = JSON.parse(data.content || "[]");
                         priorityTasks = JSON.parse(data.priorities || "[]");
-                        console.log("Datos cargados desde Firestore para el proyecto: scalexone");
+                        
+                        // Actualizar título del proyecto en el selector si existe
+                        const option = projectSelector.querySelector(`option[value="${projectId}"]`);
+                        if (option && data.projectName) {
+                            option.textContent = data.projectName;
+                        }
+                        
+                        console.log(`Datos cargados desde Firestore para el proyecto: ${projectId}`);
                     } else {
                         // El documento no existe, crear con datos iniciales
                         console.log("El documento del proyecto no existe, creando uno nuevo...");
-                        projectData = initialProjectData;
+                        projectData = [];
                         priorityTasks = [];
-                        saveInitialData(); // Guardará en el projectDocRef actual
+                        saveInitialData();
                     }
                     // Renderizar la UI con los datos
                     renderProject();
@@ -980,21 +1125,136 @@
                 });
                 
             } catch (error) {
-                console.error("Error al configurar Firestore:", error);
+                console.error("Error al cargar proyecto:", error);
                 showMessage(`Error de configuración: ${error.message}`);
                 loadingSpinner.classList.add('hidden');
             }
+        }
+
+        // --- NUEVA: Crear nuevo proyecto ---
+        async function createNewProject() {
+            const name = newProjectNameInput.value.trim();
+            if (!name) {
+                showMessage("Por favor, ingresa un nombre para el proyecto");
+                return;
+            }
+            
+            // Generar ID único (slug del nombre)
+            const projectId = name.toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '');
+            
+            if (!projectId) {
+                showMessage("El nombre del proyecto debe contener al menos una letra o número");
+                return;
+            }
+            
+            try {
+                loadingSpinner.classList.remove('hidden');
+                loadingText.textContent = "Creando proyecto...";
+                
+                const docPath = `artifacts/${appId}/public/data/projects/${projectId}`;
+                const newProjectRef = doc(db, docPath);
+                
+                // Verificar si ya existe
+                const existingDoc = await getDoc(newProjectRef);
+                if (existingDoc.exists()) {
+                    showMessage("Ya existe un proyecto con ese nombre. Por favor, elige otro nombre.");
+                    loadingSpinner.classList.add('hidden');
+                    return;
+                }
+                
+                // Crear proyecto
+                await setDoc(newProjectRef, {
+                    projectName: name,
+                    description: newProjectDescriptionInput.value.trim() || '',
+                    content: JSON.stringify([]),
+                    priorities: JSON.stringify([]),
+                    createdAt: new Date().toISOString()
+                });
+                
+                console.log("Proyecto creado:", projectId);
+                
+                // Cerrar modal y limpiar
+                newProjectModal.classList.add('hidden');
+                newProjectNameInput.value = '';
+                newProjectDescriptionInput.value = '';
+                
+                // Recargar lista y seleccionar nuevo proyecto
+                await loadProjectsList();
+                projectSelector.value = projectId;
+                loadProject(projectId);
+                
+                loadingSpinner.classList.add('hidden');
+                showMessage(`Proyecto "${name}" creado exitosamente`);
+                
+            } catch (error) {
+                console.error("Error al crear proyecto:", error);
+                showMessage(`Error al crear proyecto: ${error.message}`);
+                loadingSpinner.classList.add('hidden');
+            }
+        }
+
+        // --- NUEVA: Eliminar proyecto ---
+        async function deleteCurrentProject() {
+            if (!currentProjectId) return;
+            
+            const projectName = projectSelector.options[projectSelector.selectedIndex]?.textContent || currentProjectId;
+            
+            if (!confirm(`¿Estás seguro de que quieres eliminar el proyecto "${projectName}"?\n\nEsta acción no se puede deshacer.`)) {
+                return;
+            }
+            
+            try {
+                loadingSpinner.classList.remove('hidden');
+                loadingText.textContent = "Eliminando proyecto...";
+                
+                const docPath = `artifacts/${appId}/public/data/projects/${currentProjectId}`;
+                await deleteDoc(doc(db, docPath));
+                
+                console.log("Proyecto eliminado:", currentProjectId);
+                
+                // Limpiar datos
+                projectData = [];
+                priorityTasks = [];
+                currentProjectId = null;
+                localStorage.removeItem('lastSelectedProject');
+                
+                // Recargar lista
+                await loadProjectsList();
+                
+                loadingSpinner.classList.add('hidden');
+                showMessage(`Proyecto "${projectName}" eliminado exitosamente`);
+                
+            } catch (error) {
+                console.error("Error al eliminar proyecto:", error);
+                showMessage(`Error al eliminar proyecto: ${error.message}`);
+                loadingSpinner.classList.add('hidden');
+            }
+        }
+
+        // --- MODIFICADA: Inicializar sistema de proyectos ---
+        function setupFirestoreListener() {
+            // Primero cargar lista de proyectos
+            loadProjectsList();
         }
         
         async function saveInitialData() {
             if (!projectDocRef) return;
             try {
+                // Obtener datos actuales para preservar nombre y descripción
+                const currentDoc = await getDoc(projectDocRef);
+                const currentData = currentDoc.exists() ? currentDoc.data() : {};
+                
                 await setDoc(projectDocRef, {
-                    projectName: "SCALEXONE", // Añadir un nombre por defecto
+                    projectName: currentData.projectName || "Nuevo Proyecto",
+                    description: currentData.description || '',
                     content: JSON.stringify(projectData),
-                    priorities: JSON.stringify(priorityTasks) 
+                    priorities: JSON.stringify(priorityTasks),
+                    createdAt: currentData.createdAt || new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
                 }, { merge: true });
-                console.log("Proyecto inicial guardado.");
+                console.log("Proyecto guardado.");
             } catch (error) {
                 console.error("Error al guardar datos iniciales:", error);
                 showMessage(`Error al guardar: ${error.message}`);
@@ -1337,7 +1597,10 @@
         async function saveCoreProjectData() {
             if (!projectDocRef) return;
             try {
-                await setDoc(projectDocRef, { content: JSON.stringify(projectData) }, { merge: true });
+                await setDoc(projectDocRef, { 
+                    content: JSON.stringify(projectData),
+                    updatedAt: new Date().toISOString()
+                }, { merge: true });
                 console.log("Proyecto guardado en Firestore.");
             } catch (error) {
                 console.error("Error al guardar en Firestore:", error);
@@ -1381,7 +1644,10 @@
         async function savePriorityTasks() {
             if (!projectDocRef) return;
             try {
-                await setDoc(projectDocRef, { priorities: JSON.stringify(priorityTasks) }, { merge: true });
+                await setDoc(projectDocRef, { 
+                    priorities: JSON.stringify(priorityTasks),
+                    updatedAt: new Date().toISOString()
+                }, { merge: true });
                 console.log("Prioridades guardadas en Firestore.");
             } catch (error) {
                 console.error("Error al guardar prioridades en Firestore:", error);
@@ -1460,6 +1726,35 @@
         window.handleDeletePriority = handleDeletePriority;
         window.handlePriorityStatusClick = handlePriorityStatusClick;
         window.handlePriorityNoteClick = handlePriorityNoteClick;
+
+        // --- Event Listeners para Multi-Proyecto ---
+        projectSelector.onchange = (e) => {
+            const selectedProjectId = e.target.value;
+            if (selectedProjectId) {
+                loadProject(selectedProjectId);
+            }
+        };
+
+        newProjectBtn.onclick = () => {
+            newProjectModal.classList.remove('hidden');
+            newProjectNameInput.focus();
+        };
+
+        createProjectBtn.onclick = createNewProject;
+        cancelNewProjectBtn.onclick = () => {
+            newProjectModal.classList.add('hidden');
+            newProjectNameInput.value = '';
+            newProjectDescriptionInput.value = '';
+        };
+
+        deleteProjectBtn.onclick = deleteCurrentProject;
+
+        // Permitir crear proyecto con Enter
+        newProjectNameInput.onkeypress = (e) => {
+            if (e.key === 'Enter') {
+                createNewProject();
+            }
+        };
 
     </script>
 </body>

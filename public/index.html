@@ -102,8 +102,10 @@
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <h1 class="text-2xl sm:text-3xl font-bold text-white">📋 Gestor de Proyectos</h1>
                     <div class="flex items-center gap-2">
-                        <div class="text-xs sm:text-sm text-gray-400">
-                    Estado: <span id="auth-status-main" class="font-semibold text-green-400">Conectado</span>
+                        <div class="text-xs sm:text-sm text-gray-400 flex items-center gap-2">
+                    Estado: <span id="auth-status-main" class="font-semibold text-green-400 flex items-center gap-2">
+                            <span>Conectado</span>
+                        </span>
                         </div>
                         <!-- Botón de Admin (solo visible para superadmin) -->
                         <button id="admin-panel-btn" class="bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs px-2 py-1 rounded hidden">
@@ -319,9 +321,23 @@
             </div>
             <div class="mb-4">
                 <label class="block text-gray-300 mb-2">Responsable (Email)</label>
-                <select id="new-task-assignedTo" class="w-full p-2 rounded-md bg-gray-700 text-gray-100 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500">
-                    <option value="">Sin asignar (opcional)</option>
-                </select>
+                <div id="new-task-assignedTo-container" class="relative">
+                    <div id="new-task-assignedTo-display" class="w-full p-2 rounded-md bg-gray-700 text-gray-100 border border-gray-600 cursor-pointer flex items-center justify-between hover:border-green-500 transition-colors">
+                        <div id="new-task-assignedTo-content" class="flex items-center flex-1 min-w-0">
+                            <span id="new-task-assignedTo-text" class="text-gray-400">Sin asignar (opcional)</span>
+                        </div>
+                        <span class="text-gray-400 ml-2 flex-shrink-0">▼</span>
+                    </div>
+                    <div id="new-task-assignedTo-dropdown" class="hidden absolute z-50 w-full mt-1 bg-gray-800 border border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                        <div class="assigned-option p-2 hover:bg-gray-700 cursor-pointer border-b border-gray-700" data-value="">
+                            <div class="flex items-center">
+                                <div class="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-gray-400 mr-3 flex-shrink-0">-</div>
+                                <span class="text-gray-300">Sin asignar</span>
+                            </div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="new-task-assignedTo" value="">
+                </div>
             </div>
             <div class="flex justify-end space-x-3 mt-4">
                 <button id="cancel-new-task-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-5 rounded-lg">
@@ -359,9 +375,23 @@
             </div>
             <div class="mb-4">
                 <label class="block text-gray-300 mb-2">Responsable (Email)</label>
-                <select id="edit-task-assignedTo" class="w-full p-2 rounded-md bg-gray-700 text-gray-100 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500">
-                    <option value="">Sin asignar (opcional)</option>
-                </select>
+                <div id="edit-task-assignedTo-container" class="relative">
+                    <div id="edit-task-assignedTo-display" class="w-full p-2 rounded-md bg-gray-700 text-gray-100 border border-gray-600 cursor-pointer flex items-center justify-between hover:border-green-500 transition-colors">
+                        <div id="edit-task-assignedTo-content" class="flex items-center flex-1 min-w-0">
+                            <span id="edit-task-assignedTo-text" class="text-gray-400">Sin asignar (opcional)</span>
+                        </div>
+                        <span class="text-gray-400 ml-2 flex-shrink-0">▼</span>
+                    </div>
+                    <div id="edit-task-assignedTo-dropdown" class="hidden absolute z-50 w-full mt-1 bg-gray-800 border border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                        <div class="assigned-option p-2 hover:bg-gray-700 cursor-pointer border-b border-gray-700" data-value="">
+                            <div class="flex items-center">
+                                <div class="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-gray-400 mr-3 flex-shrink-0">-</div>
+                                <span class="text-gray-300">Sin asignar</span>
+                            </div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="edit-task-assignedTo" value="">
+                </div>
             </div>
             <div class="flex justify-end space-x-3 mt-4">
                 <button id="cancel-edit-task-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-5 rounded-lg">
@@ -494,7 +524,8 @@
         let priorityTasks = []; 
         let openAccordions = new Set(); 
         let savedScrollY = 0;
-        let currentProjectEmails = []; // Lista de correos disponibles para el proyecto actual (createdBy + invitedUsers) 
+        let currentProjectEmails = []; // Lista de correos disponibles para el proyecto actual (createdBy + invitedUsers)
+        let currentProjectUsersInfo = {}; // Objeto email -> {displayName, photoURL} para el proyecto actual 
         
         const loadingSpinner = document.getElementById('loading-spinner');
         const loadingText = document.getElementById('loading-text');
@@ -546,6 +577,10 @@
         const newTaskDueDateInput = document.getElementById('new-task-dueDate');
         const newTaskPriorityInput = document.getElementById('new-task-priority');
         const newTaskAssignedToInput = document.getElementById('new-task-assignedTo');
+        const newTaskAssignedToDisplay = document.getElementById('new-task-assignedTo-display');
+        const newTaskAssignedToText = document.getElementById('new-task-assignedTo-text');
+        const newTaskAssignedToContent = document.getElementById('new-task-assignedTo-content');
+        const newTaskAssignedToDropdown = document.getElementById('new-task-assignedTo-dropdown');
         const createTaskBtn = document.getElementById('create-task-btn');
         const cancelNewTaskBtn = document.getElementById('cancel-new-task-btn');
         const editTaskModal = document.getElementById('edit-task-modal');
@@ -553,6 +588,10 @@
         const editTaskDueDateInput = document.getElementById('edit-task-dueDate');
         const editTaskPriorityInput = document.getElementById('edit-task-priority');
         const editTaskAssignedToInput = document.getElementById('edit-task-assignedTo');
+        const editTaskAssignedToDisplay = document.getElementById('edit-task-assignedTo-display');
+        const editTaskAssignedToContent = document.getElementById('edit-task-assignedTo-content');
+        const editTaskAssignedToText = document.getElementById('edit-task-assignedTo-text');
+        const editTaskAssignedToDropdown = document.getElementById('edit-task-assignedTo-dropdown');
         const saveEditTaskBtn = document.getElementById('save-edit-task-btn');
         const cancelEditTaskBtn = document.getElementById('cancel-edit-task-btn');
         const projectSettingsModal = document.getElementById('project-settings-modal');
@@ -1271,8 +1310,18 @@
                             adminPanelBtn.classList.add('hidden');
                         }
                         
-                        // Mostrar estado en la app principal
-                        authStatusMain.textContent = `Conectado: ${user.displayName}`;
+                        // Mostrar estado en la app principal con foto de perfil
+                        const userPhotoURL = user.photoURL || null;
+                        const userDisplayName = user.displayName || 'Usuario';
+                        const photoHTML = userPhotoURL 
+                            ? `<img src="${userPhotoURL}" alt="${userDisplayName}" class="w-5 h-5 rounded-full flex-shrink-0 object-cover border border-green-500">`
+                            : `<div class="w-5 h-5 rounded-full bg-gray-600 flex items-center justify-center text-white text-xs flex-shrink-0 border border-green-500">${userDisplayName.charAt(0).toUpperCase()}</div>`;
+                        
+                        authStatusMain.innerHTML = `
+                            <span>Conectado:</span>
+                            ${photoHTML}
+                            <span>${userDisplayName}</span>
+                        `;
                         authStatusMain.classList.remove('text-yellow-400');
                         authStatusMain.classList.add('text-green-400');
                         
@@ -1552,8 +1601,12 @@
                         
                         // Actualizar lista de correos disponibles para este proyecto
                         currentProjectEmails = [];
+                        currentProjectUsersInfo = {}; // Limpiar información previa
+                        
                         if (finalCreatedBy) {
                             currentProjectEmails.push(finalCreatedBy);
+                            // Pre-cargar información del creador
+                            await getUserInfoByEmail(finalCreatedBy);
                         }
                         if (finalInvitedUsers && finalInvitedUsers.length > 0) {
                             finalInvitedUsers.forEach(email => {
@@ -1561,6 +1614,12 @@
                                     currentProjectEmails.push(email);
                                 }
                             });
+                            // Pre-cargar información de todos los invitados
+                            for (const email of finalInvitedUsers) {
+                                if (email) {
+                                    await getUserInfoByEmail(email);
+                                }
+                            }
                         }
                         
                         const isOwner = userEmail && userEmail === finalCreatedBy;
@@ -1887,36 +1946,172 @@
             showMessage(`Tarea "${text}" creada exitosamente`);
         }
 
-        // --- Función para poblar selects de correos responsables ---
-        function populateResponsibleEmailSelects(selectElement, currentValue = '') {
-            if (!selectElement) return;
+        // --- Función para buscar información de usuario por email ---
+        async function getUserInfoByEmail(email) {
+            if (!email) return null;
+            
+            try {
+                // Si ya tenemos la información en cache, devolverla
+                if (currentProjectUsersInfo[email]) {
+                    return currentProjectUsersInfo[email];
+                }
+                
+                // Buscar en Firestore todos los usuarios y filtrar por email
+                const usersPath = `artifacts/${appId}/public/data/users`;
+                const usersRef = collection(db, usersPath);
+                const usersSnapshot = await getDocs(usersRef);
+                
+                let userInfo = null;
+                usersSnapshot.forEach((docSnap) => {
+                    const data = docSnap.data();
+                    if (data.email && data.email.toLowerCase() === email.toLowerCase()) {
+                        userInfo = {
+                            displayName: data.displayName || email.split('@')[0],
+                            photoURL: data.photoURL || null
+                        };
+                        // Guardar en cache
+                        currentProjectUsersInfo[email] = userInfo;
+                        return;
+                    }
+                });
+                
+                // Si no se encontró, usar valores por defecto
+                if (!userInfo) {
+                    userInfo = {
+                        displayName: email.split('@')[0],
+                        photoURL: null
+                    };
+                    currentProjectUsersInfo[email] = userInfo;
+                }
+                
+                return userInfo;
+            } catch (error) {
+                console.error("Error al buscar información de usuario:", error);
+                return {
+                    displayName: email.split('@')[0],
+                    photoURL: null
+                };
+            }
+        }
+
+        // --- Función para poblar dropdown de correos responsables ---
+        async function populateResponsibleEmailDropdown(container, display, textElement, contentElement, dropdown, hiddenInput, currentValue = '') {
+            if (!container || !dropdown || !hiddenInput) return;
             
             // Guardar el valor actual
-            const savedValue = currentValue || selectElement.value;
+            const savedValue = currentValue || hiddenInput.value;
             
             // Limpiar opciones existentes excepto la primera (Sin asignar)
-            selectElement.innerHTML = '<option value="">Sin asignar (opcional)</option>';
+            dropdown.innerHTML = `
+                <div class="assigned-option p-2 hover:bg-gray-700 cursor-pointer border-b border-gray-700" data-value="">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-gray-400 mr-3 flex-shrink-0">-</div>
+                        <span class="text-gray-300">Sin asignar</span>
+                    </div>
+                </div>
+            `;
             
-            // Agregar correos del proyecto actual
-            if (currentProjectEmails && currentProjectEmails.length > 0) {
-                currentProjectEmails.forEach(email => {
-                    if (email) {
-                        const option = document.createElement('option');
-                        option.value = email;
-                        option.textContent = email;
-                        selectElement.appendChild(option);
-                    }
+            // Event listener para la opción "Sin asignar"
+            const unassignedOption = dropdown.querySelector('.assigned-option[data-value=""]');
+            if (unassignedOption) {
+                unassignedOption.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    hiddenInput.value = '';
+                    updateResponsibleDisplay(display, textElement, contentElement, '', null);
+                    dropdown.classList.add('hidden');
                 });
             }
             
-            // Restaurar el valor seleccionado si existe en las opciones
+            // Cargar información de todos los correos del proyecto
+            if (currentProjectEmails && currentProjectEmails.length > 0) {
+                for (const email of currentProjectEmails) {
+                    if (!email) continue;
+                    
+                    // Obtener información del usuario
+                    const userInfo = await getUserInfoByEmail(email);
+                    
+                    // Crear opción con foto y nombre
+                    const optionDiv = document.createElement('div');
+                    optionDiv.className = 'assigned-option p-2 hover:bg-gray-700 cursor-pointer border-b border-gray-700';
+                    optionDiv.setAttribute('data-value', email);
+                    
+                    const photoHTML = userInfo.photoURL 
+                        ? `<img src="${userInfo.photoURL}" alt="${userInfo.displayName}" class="w-8 h-8 rounded-full mr-3 flex-shrink-0 object-cover">`
+                        : `<div class="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-gray-400 mr-3 flex-shrink-0">${userInfo.displayName.charAt(0).toUpperCase()}</div>`;
+                    
+                    optionDiv.innerHTML = `
+                        <div class="flex items-center">
+                            ${photoHTML}
+                            <div class="flex-1 min-w-0">
+                                <div class="text-white font-medium truncate">${userInfo.displayName}</div>
+                                <div class="text-xs text-gray-400 truncate">${email}</div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Event listener para seleccionar opción
+                    optionDiv.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        hiddenInput.value = email;
+                        updateResponsibleDisplay(display, textElement, contentElement, email, userInfo);
+                        dropdown.classList.add('hidden');
+                    });
+                    
+                    dropdown.appendChild(optionDiv);
+                }
+            }
+            
+            // Actualizar display si hay un valor guardado
             if (savedValue) {
-                const optionExists = Array.from(selectElement.options).some(opt => opt.value === savedValue);
-                if (optionExists) {
-                    selectElement.value = savedValue;
+                const userInfo = await getUserInfoByEmail(savedValue);
+                updateResponsibleDisplay(display, textElement, contentElement, savedValue, userInfo);
+            } else {
+                updateResponsibleDisplay(display, textElement, contentElement, '', null);
+            }
+        }
+
+        // --- Función para actualizar el display del responsable ---
+        function updateResponsibleDisplay(display, textElement, contentElement, email, userInfo) {
+            if (!display) return;
+            
+            if (email && userInfo) {
+                // Mostrar nombre y foto
+                const photoHTML = userInfo.photoURL 
+                    ? `<img src="${userInfo.photoURL}" alt="${userInfo.displayName}" class="w-6 h-6 rounded-full mr-2 flex-shrink-0 object-cover">`
+                    : `<div class="w-6 h-6 rounded-full bg-gray-600 flex items-center justify-center text-white text-xs mr-2 flex-shrink-0">${userInfo.displayName.charAt(0).toUpperCase()}</div>`;
+                
+                if (contentElement) {
+                    // Para edit modal que tiene contentElement
+                    contentElement.innerHTML = `
+                        ${photoHTML}
+                        <div class="flex-1 min-w-0">
+                            <div class="text-white font-medium truncate">${userInfo.displayName}</div>
+                            <div class="text-xs text-gray-400 truncate">${email}</div>
+                        </div>
+                    `;
+                } else if (textElement || contentElement) {
+                    // Usar contentElement si está disponible (nueva estructura), si no usar textElement
+                    const elementToUpdate = contentElement || textElement;
+                    if (elementToUpdate) {
+                        elementToUpdate.innerHTML = `
+                            ${photoHTML}
+                            <div class="flex-1 min-w-0">
+                                <div class="text-white font-medium truncate">${userInfo.displayName}</div>
+                                <div class="text-xs text-gray-400 truncate">${email}</div>
+                            </div>
+                        `;
+                    }
                 }
             } else {
-                selectElement.value = '';
+                // Mostrar "Sin asignar"
+                const elementToUpdate = contentElement || textElement;
+                if (elementToUpdate) {
+                    if (contentElement) {
+                        elementToUpdate.innerHTML = '<span class="text-gray-400">Sin asignar (opcional)</span>';
+                    } else {
+                        elementToUpdate.textContent = 'Sin asignar (opcional)';
+                    }
+                }
             }
         }
 
@@ -1977,6 +2172,9 @@
                 if (!currentProjectEmails.includes(email)) {
                     currentProjectEmails.push(email);
                 }
+                
+                // Buscar información del usuario invitado
+                await getUserInfoByEmail(email);
                 
                 console.log("Usuario invitado:", email, "al proyecto:", currentProjectId);
                 
@@ -2131,12 +2329,19 @@
                     const addTaskBtn = document.createElement('button');
                     addTaskBtn.className = 'bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-2 sm:px-3 rounded text-xs ml-2 whitespace-nowrap';
                     addTaskBtn.textContent = '+ Tarea';
-                    addTaskBtn.onclick = (e) => {
+                    addTaskBtn.onclick = async (e) => {
                         e.stopPropagation();
                         currentSectionIdForTask = section.id;
                         currentSubsectionIdForTask = subsection.id;
-                        // Poblar el select de correos antes de abrir el modal
-                        populateResponsibleEmailSelects(newTaskAssignedToInput);
+                        // Poblar el dropdown de correos antes de abrir el modal
+                        await populateResponsibleEmailDropdown(
+                            document.getElementById('new-task-assignedTo-container'),
+                            newTaskAssignedToDisplay,
+                            newTaskAssignedToText,
+                            document.getElementById('new-task-assignedTo-content'),
+                            newTaskAssignedToDropdown,
+                            newTaskAssignedToInput
+                        );
                         newTaskModal.classList.remove('hidden');
                         newTaskTextInput.focus();
                     };
@@ -2721,9 +2926,36 @@
         cancelNewTaskBtn.onclick = () => {
             newTaskModal.classList.add('hidden');
             newTaskTextInput.value = '';
+            newTaskAssignedToInput.value = '';
+            newTaskAssignedToDropdown.classList.add('hidden');
             currentSectionIdForTask = null;
             currentSubsectionIdForTask = null;
         };
+        
+        // Event listeners para dropdown de responsable (nueva tarea)
+        if (newTaskAssignedToDisplay && newTaskAssignedToDropdown) {
+            newTaskAssignedToDisplay.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isHidden = newTaskAssignedToDropdown.classList.contains('hidden');
+                // Cerrar otros dropdowns si están abiertos
+                if (editTaskAssignedToDropdown && !editTaskAssignedToDropdown.classList.contains('hidden')) {
+                    editTaskAssignedToDropdown.classList.add('hidden');
+                }
+                // Toggle este dropdown
+                if (isHidden) {
+                    newTaskAssignedToDropdown.classList.remove('hidden');
+                } else {
+                    newTaskAssignedToDropdown.classList.add('hidden');
+                }
+            });
+            
+            // Cerrar dropdown cuando se hace click fuera
+            document.addEventListener('click', (e) => {
+                if (!newTaskAssignedToDisplay.contains(e.target) && !newTaskAssignedToDropdown.contains(e.target)) {
+                    newTaskAssignedToDropdown.classList.add('hidden');
+                }
+            });
+        }
 
         // Permitir crear tarea con Enter
         newTaskTextInput.onkeypress = (e) => {
@@ -2733,7 +2965,7 @@
         };
 
         // --- Funciones de Edición de Tarea ---
-        function openEditTaskModal(sectionId, subsectionId, itemId) {
+        async function openEditTaskModal(sectionId, subsectionId, itemId) {
             // Buscar la tarea en projectData
             const section = projectData.find(s => s.id === sectionId);
             if (!section) return;
@@ -2752,8 +2984,16 @@
             editTaskDueDateInput.value = item.dueDate || '';
             editTaskPriorityInput.value = item.priority || 'media';
             
-            // Poblar el select de correos con el valor actual de la tarea
-            populateResponsibleEmailSelects(editTaskAssignedToInput, item.assignedTo || '');
+            // Poblar el dropdown de correos con el valor actual de la tarea
+            await populateResponsibleEmailDropdown(
+                document.getElementById('edit-task-assignedTo-container'),
+                editTaskAssignedToDisplay,
+                editTaskAssignedToText,
+                editTaskAssignedToContent,
+                editTaskAssignedToDropdown,
+                editTaskAssignedToInput,
+                item.assignedTo || ''
+            );
             
             // Mostrar el modal
             editTaskModal.classList.remove('hidden');
@@ -3135,7 +3375,33 @@
             editTaskDueDateInput.value = '';
             editTaskPriorityInput.value = 'media';
             editTaskAssignedToInput.value = '';
+            editTaskAssignedToDropdown.classList.add('hidden');
         };
+        
+        // Event listeners para dropdown de responsable (editar tarea)
+        if (editTaskAssignedToDisplay && editTaskAssignedToDropdown) {
+            editTaskAssignedToDisplay.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isHidden = editTaskAssignedToDropdown.classList.contains('hidden');
+                // Cerrar otros dropdowns si están abiertos
+                if (newTaskAssignedToDropdown && !newTaskAssignedToDropdown.classList.contains('hidden')) {
+                    newTaskAssignedToDropdown.classList.add('hidden');
+                }
+                // Toggle este dropdown
+                if (isHidden) {
+                    editTaskAssignedToDropdown.classList.remove('hidden');
+                } else {
+                    editTaskAssignedToDropdown.classList.add('hidden');
+                }
+            });
+            
+            // Cerrar dropdown cuando se hace click fuera
+            document.addEventListener('click', (e) => {
+                if (!editTaskAssignedToDisplay.contains(e.target) && !editTaskAssignedToDropdown.contains(e.target)) {
+                    editTaskAssignedToDropdown.classList.add('hidden');
+                }
+            });
+        }
 
         // Permitir guardar con Enter en el campo de texto
         editTaskTextInput.onkeypress = (e) => {

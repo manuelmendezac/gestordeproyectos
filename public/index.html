@@ -1247,9 +1247,9 @@
                     const creatorEmail = data.createdBy || null;
                     const invitedEmails = data.invitedUsers || [];
                     
-                    // Filtrar proyectos privados
+                    // Filtrar proyectos según permisos
                     if (isPrivate) {
-                        // Solo mostrar si es el creador o está invitado
+                        // Proyectos privados: SOLO mostrar si es el creador o está invitado
                         if (userEmail && (userEmail === creatorEmail || invitedEmails.includes(userEmail))) {
                             projects.push({
                                 id: docSnap.id,
@@ -1257,18 +1257,21 @@
                                 description: data.description || '',
                                 isPrivate: true,
                                 createdBy: creatorEmail,
-                                isOwner: userEmail === creatorEmail
+                                isOwner: userEmail === creatorEmail,
+                                isInvited: invitedEmails.includes(userEmail) && userEmail !== creatorEmail
                             });
                         }
+                        // Si no es el creador ni está invitado, NO mostrar el proyecto privado
                     } else {
-                        // Proyectos públicos: todos pueden verlos
+                        // Proyectos públicos: todos los usuarios autenticados pueden verlos
                         projects.push({
                             id: docSnap.id,
                             name: data.projectName || docSnap.id,
                             description: data.description || '',
                             isPrivate: false,
                             createdBy: creatorEmail,
-                            isOwner: userEmail === creatorEmail
+                            isOwner: userEmail === creatorEmail,
+                            isInvited: false
                         });
                     }
                 });
@@ -1280,8 +1283,11 @@
                 projectSelector.innerHTML = '';
                 if (projects.length === 0) {
                     projectSelector.innerHTML = '<option value="">No hay proyectos disponibles</option>';
-                    // Si no hay proyectos, crear uno por defecto
-                    await createDefaultProject();
+                    // Ocultar todos los botones si no hay proyectos
+                    deleteProjectBtn.classList.add('hidden');
+                    inviteUserBtn.classList.add('hidden');
+                    projectSettingsBtn.classList.add('hidden');
+                    // No crear proyecto por defecto automáticamente - el usuario debe crearlo manualmente
                     return;
                 }
                 
@@ -1310,11 +1316,17 @@
             }
         }
 
-        // --- Crear proyecto por defecto (migración) ---
+        // --- Crear proyecto por defecto (solo para el primer usuario que lo necesite) ---
+        // Esta función ya no se llama automáticamente - los usuarios deben crear proyectos manualmente
         async function createDefaultProject() {
             try {
                 const user = auth.currentUser;
                 const userEmail = user?.email || null;
+                
+                if (!userEmail) {
+                    console.log("No se puede crear proyecto por defecto sin usuario autenticado");
+                    return;
+                }
                 
                 const defaultProjectId = 'scalexone';
                 const docPath = `artifacts/${appId}/public/data/projects/${defaultProjectId}`;
@@ -1327,8 +1339,8 @@
                         description: "Proyecto principal de SCALEXONE",
                         content: JSON.stringify(initialProjectData),
                         priorities: JSON.stringify([]),
-                        isPrivate: false, // Proyecto público por defecto
-                        createdBy: userEmail || 'system',
+                        isPrivate: true, // Proyecto privado por defecto - solo visible para el creador
+                        createdBy: userEmail,
                         invitedUsers: [],
                         createdAt: new Date().toISOString()
                     });
@@ -1344,17 +1356,28 @@
 
         // --- Cargar un proyecto específico ---
         function loadProject(projectId) {
-            if (!projectId) return;
+            if (!projectId) {
+                // Si no hay proyecto seleccionado, ocultar todos los botones
+                deleteProjectBtn.classList.add('hidden');
+                inviteUserBtn.classList.add('hidden');
+                projectSettingsBtn.classList.add('hidden');
+                return;
+            }
             
             currentProjectId = projectId;
             localStorage.setItem('lastSelectedProject', projectId);
+            
+            // Ocultar botones temporalmente hasta verificar permisos
+            deleteProjectBtn.classList.add('hidden');
+            inviteUserBtn.classList.add('hidden');
+            projectSettingsBtn.classList.add('hidden');
             
             try {
                 const docPath = `artifacts/${appId}/public/data/projects/${projectId}`;
                 projectDocRef = doc(db, docPath);
 
                 // Escuchar cambios en tiempo real para ESE proyecto
-                onSnapshot(projectDocRef, (docSnap) => {
+                onSnapshot(projectDocRef, async (docSnap) => {
                     if (docSnap.exists()) {
                         const data = docSnap.data();
                         projectData = JSON.parse(data.content || "[]");
@@ -1363,16 +1386,26 @@
                         // Verificar permisos
                         const user = auth.currentUser;
                         const userEmail = user?.email || null;
-                        const isOwner = userEmail === data.createdBy;
-                        const isInvited = data.invitedUsers?.includes(userEmail) || false;
+                        const isOwner = userEmail && userEmail === data.createdBy;
+                        const isInvited = userEmail && (data.invitedUsers?.includes(userEmail) || false);
                         const isPrivate = data.isPrivate === true;
                         
-                        // Mostrar/ocultar botones según permisos
+                        // Verificar acceso al proyecto
+                        if (isPrivate && !isOwner && !isInvited) {
+                            // Usuario no tiene acceso a este proyecto privado
+                            showMessage('⚠️ No tienes acceso a este proyecto privado.');
+                            // Cargar el primer proyecto disponible en su lugar
+                            await loadProjectsList();
+                            return;
+                        }
+                        
+                        // Mostrar/ocultar botones según permisos - SOLO para el dueño
                         if (isOwner) {
                             deleteProjectBtn.classList.remove('hidden');
                             inviteUserBtn.classList.remove('hidden');
                             projectSettingsBtn.classList.remove('hidden');
                         } else {
+                            // Usuario invitado o público - NO puede editar configuración, invitar o eliminar
                             deleteProjectBtn.classList.add('hidden');
                             inviteUserBtn.classList.add('hidden');
                             projectSettingsBtn.classList.add('hidden');

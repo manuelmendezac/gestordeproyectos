@@ -98,19 +98,33 @@
         <!-- Contenedor Principal -->
         <div class="container mx-auto p-4 md:p-8 max-w-7xl">
             <header class="flex flex-col md:flex-row justify-between items-center mb-6 pb-4 border-b border-gray-700">
-                <div class="flex flex-col md:flex-row items-center gap-4 mb-2 md:mb-0">
+                <div class="flex flex-col md:flex-row items-center gap-4 mb-2 md:mb-0 w-full">
                     <h1 class="text-3xl font-bold text-white">📋 Gestor de Proyectos</h1>
-                    <!-- Selector de Proyectos -->
-                    <div class="flex items-center gap-2">
-                        <select id="project-selector" class="bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
-                            <option value="">Cargando proyectos...</option>
-                        </select>
-                        <button id="new-project-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg text-sm">
-                            + Nuevo
-                        </button>
-                        <button id="delete-project-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg text-sm hidden">
-                            🗑️ Eliminar
-                        </button>
+                    <!-- Selectores: Workspace y Proyecto -->
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <!-- Selector de Espacio de Trabajo -->
+                        <div class="flex items-center gap-2">
+                            <label class="text-gray-300 text-sm font-semibold">Espacio:</label>
+                            <select id="workspace-selector" class="bg-purple-700 text-white px-4 py-2 rounded-lg border border-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer font-semibold">
+                                <option value="">Cargando espacios...</option>
+                            </select>
+                            <button id="new-workspace-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-3 rounded-lg text-sm">
+                                + Espacio
+                            </button>
+                        </div>
+                        <!-- Selector de Proyectos -->
+                        <div class="flex items-center gap-2">
+                            <label class="text-gray-300 text-sm font-semibold">Proyecto:</label>
+                            <select id="project-selector" class="bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
+                                <option value="">Selecciona un espacio primero</option>
+                            </select>
+                            <button id="new-project-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg text-sm">
+                                + Proyecto
+                            </button>
+                            <button id="delete-project-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg text-sm hidden">
+                                🗑️
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <div class="text-sm text-gray-400">
@@ -179,13 +193,36 @@
         </div>
     </div>
 
+    <!-- Modal de Nuevo Espacio de Trabajo -->
+    <div id="new-workspace-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center z-40 hidden">
+        <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-md mx-auto w-full">
+            <h3 class="text-xl font-semibold text-white mb-4">✨ Crear Nuevo Espacio de Trabajo</h3>
+            <div class="mb-4">
+                <label class="block text-gray-300 mb-2">Nombre del Espacio</label>
+                <input id="new-workspace-name" type="text" class="w-full p-2 rounded-md bg-gray-700 text-gray-100 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500" placeholder="Ej: Marketing, Desarrollo, Personal">
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-300 mb-2">Descripción (opcional)</label>
+                <textarea id="new-workspace-description" rows="3" class="w-full p-2 rounded-md bg-gray-700 text-gray-100 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500" placeholder="Descripción del espacio de trabajo"></textarea>
+            </div>
+            <div class="flex justify-end space-x-3 mt-4">
+                <button id="cancel-new-workspace-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-5 rounded-lg">
+                    Cancelar
+                </button>
+                <button id="create-workspace-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-5 rounded-lg">
+                    Crear Espacio
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal de Nuevo Proyecto -->
     <div id="new-project-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center z-40 hidden">
         <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-md mx-auto w-full">
-            <h3 class="text-xl font-semibold text-white mb-4">Crear Nuevo Proyecto</h3>
+            <h3 class="text-xl font-semibold text-white mb-4">📁 Crear Nuevo Proyecto</h3>
             <div class="mb-4">
                 <label class="block text-gray-300 mb-2">Nombre del Proyecto</label>
-                <input id="new-project-name" type="text" class="w-full p-2 rounded-md bg-gray-700 text-gray-100 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ej: Mi Proyecto">
+                <input id="new-project-name" type="text" class="w-full p-2 rounded-md bg-gray-700 text-gray-100 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ej: SCALEXONE, Marketing Q1">
             </div>
             <div class="mb-4">
                 <label class="block text-gray-300 mb-2">Descripción (opcional)</label>
@@ -240,7 +277,9 @@
         let db, auth;
         let userId = null;
         let projectDocRef = null; 
+        let currentWorkspaceId = null; // ID del workspace actualmente seleccionado
         let currentProjectId = null; // ID del proyecto actualmente seleccionado
+        let workspacesListRef = null; // Referencia a la colección de workspaces
         let projectsListRef = null; // Referencia a la colección de proyectos
         
         let projectData = []; 
@@ -257,6 +296,8 @@
         const googleLoginBtn = document.getElementById('google-login-btn');
         const authStatusLogin = document.getElementById('auth-status-login');
         const authStatusMain = document.getElementById('auth-status-main');
+        const workspaceSelector = document.getElementById('workspace-selector');
+        const newWorkspaceBtn = document.getElementById('new-workspace-btn');
         const projectSelector = document.getElementById('project-selector');
         const newProjectBtn = document.getElementById('new-project-btn');
         const deleteProjectBtn = document.getElementById('delete-project-btn');
@@ -266,6 +307,11 @@
         const noteTextarea = document.getElementById('note-textarea');
         const saveNoteBtn = document.getElementById('save-note-btn');
         const cancelNoteBtn = document.getElementById('cancel-note-btn');
+        const newWorkspaceModal = document.getElementById('new-workspace-modal');
+        const newWorkspaceNameInput = document.getElementById('new-workspace-name');
+        const newWorkspaceDescriptionInput = document.getElementById('new-workspace-description');
+        const createWorkspaceBtn = document.getElementById('create-workspace-btn');
+        const cancelNewWorkspaceBtn = document.getElementById('cancel-new-workspace-btn');
         const newProjectModal = document.getElementById('new-project-modal');
         const newProjectNameInput = document.getElementById('new-project-name');
         const newProjectDescriptionInput = document.getElementById('new-project-description');
@@ -999,10 +1045,83 @@
         }
 
 
-        // --- NUEVA: Cargar lista de proyectos ---
-        async function loadProjectsList() {
+        // --- NUEVA: Cargar lista de workspaces ---
+        async function loadWorkspacesList() {
             try {
-                const projectsPath = `artifacts/${appId}/public/data/projects`;
+                const workspacesPath = `artifacts/${appId}/public/data/workspaces`;
+                workspacesListRef = collection(db, workspacesPath);
+                
+                const querySnapshot = await getDocs(workspacesListRef);
+                const workspaces = [];
+                
+                querySnapshot.forEach((docSnap) => {
+                    const data = docSnap.data();
+                    workspaces.push({
+                        id: docSnap.id,
+                        name: data.workspaceName || docSnap.id,
+                        description: data.description || ''
+                    });
+                });
+                
+                // Ordenar por nombre
+                workspaces.sort((a, b) => a.name.localeCompare(b.name));
+                
+                // Actualizar selector
+                workspaceSelector.innerHTML = '';
+                if (workspaces.length === 0) {
+                    workspaceSelector.innerHTML = '<option value="">No hay espacios</option>';
+                    // Si no hay workspaces, crear uno por defecto
+                    await createDefaultWorkspace();
+                    return;
+                }
+                
+                workspaces.forEach(workspace => {
+                    const option = document.createElement('option');
+                    option.value = workspace.id;
+                    option.textContent = workspace.name;
+                    workspaceSelector.appendChild(option);
+                });
+                
+                // Si hay un workspace guardado en localStorage, seleccionarlo
+                const savedWorkspaceId = localStorage.getItem('lastSelectedWorkspace');
+                if (savedWorkspaceId && workspaces.find(w => w.id === savedWorkspaceId)) {
+                    workspaceSelector.value = savedWorkspaceId;
+                    await loadWorkspace(savedWorkspaceId);
+                } else if (workspaces.length > 0) {
+                    // Seleccionar el primer workspace
+                    workspaceSelector.value = workspaces[0].id;
+                    await loadWorkspace(workspaces[0].id);
+                }
+                
+            } catch (error) {
+                console.error("Error al cargar lista de workspaces:", error);
+                showMessage(`Error al cargar espacios: ${error.message}`);
+            }
+        }
+
+        // --- NUEVA: Cargar workspace y sus proyectos ---
+        async function loadWorkspace(workspaceId) {
+            if (!workspaceId) return;
+            
+            currentWorkspaceId = workspaceId;
+            localStorage.setItem('lastSelectedWorkspace', workspaceId);
+            
+            // Limpiar selector de proyectos
+            projectSelector.innerHTML = '<option value="">Cargando proyectos...</option>';
+            
+            // Cargar proyectos de este workspace
+            await loadProjectsList(workspaceId);
+        }
+
+        // --- MODIFICADA: Cargar lista de proyectos filtrados por workspace ---
+        async function loadProjectsList(workspaceId) {
+            if (!workspaceId) {
+                projectSelector.innerHTML = '<option value="">Selecciona un espacio primero</option>';
+                return;
+            }
+            
+            try {
+                const projectsPath = `artifacts/${appId}/public/data/workspaces/${workspaceId}/projects`;
                 projectsListRef = collection(db, projectsPath);
                 
                 const querySnapshot = await getDocs(projectsListRef);
@@ -1023,9 +1142,7 @@
                 // Actualizar selector
                 projectSelector.innerHTML = '';
                 if (projects.length === 0) {
-                    projectSelector.innerHTML = '<option value="">No hay proyectos</option>';
-                    // Si no hay proyectos, crear uno por defecto
-                    await createDefaultProject();
+                    projectSelector.innerHTML = '<option value="">No hay proyectos en este espacio</option>';
                     return;
                 }
                 
@@ -1036,28 +1153,56 @@
                     projectSelector.appendChild(option);
                 });
                 
-                // Si hay un proyecto guardado en localStorage, seleccionarlo
-                const savedProjectId = localStorage.getItem('lastSelectedProject');
+                // Si hay un proyecto guardado en localStorage para este workspace, seleccionarlo
+                const savedProjectId = localStorage.getItem(`lastSelectedProject_${workspaceId}`);
                 if (savedProjectId && projects.find(p => p.id === savedProjectId)) {
                     projectSelector.value = savedProjectId;
-                    loadProject(savedProjectId);
+                    loadProject(workspaceId, savedProjectId);
                 } else if (projects.length > 0) {
                     // Seleccionar el primer proyecto
                     projectSelector.value = projects[0].id;
-                    loadProject(projects[0].id);
+                    loadProject(workspaceId, projects[0].id);
                 }
                 
             } catch (error) {
                 console.error("Error al cargar lista de proyectos:", error);
                 showMessage(`Error al cargar proyectos: ${error.message}`);
+                projectSelector.innerHTML = '<option value="">Error al cargar</option>';
             }
         }
 
-        // --- NUEVA: Crear proyecto por defecto (migración) ---
-        async function createDefaultProject() {
+        // --- NUEVA: Crear workspace por defecto (migración) ---
+        async function createDefaultWorkspace() {
+            try {
+                const defaultWorkspaceId = 'principal';
+                const workspacePath = `artifacts/${appId}/public/data/workspaces/${defaultWorkspaceId}`;
+                const defaultWorkspaceRef = doc(db, workspacePath);
+                
+                const docSnap = await getDoc(defaultWorkspaceRef);
+                if (!docSnap.exists()) {
+                    await setDoc(defaultWorkspaceRef, {
+                        workspaceName: "Principal",
+                        description: "Espacio de trabajo principal",
+                        createdAt: new Date().toISOString()
+                    });
+                    console.log("Workspace por defecto creado");
+                    
+                    // Crear proyecto SCALEXONE dentro del workspace
+                    await createDefaultProject(defaultWorkspaceId);
+                }
+                
+                // Recargar lista
+                await loadWorkspacesList();
+            } catch (error) {
+                console.error("Error al crear workspace por defecto:", error);
+            }
+        }
+
+        // --- NUEVA: Crear proyecto por defecto dentro de un workspace ---
+        async function createDefaultProject(workspaceId) {
             try {
                 const defaultProjectId = 'scalexone';
-                const docPath = `artifacts/${appId}/public/data/projects/${defaultProjectId}`;
+                const docPath = `artifacts/${appId}/public/data/workspaces/${workspaceId}/projects/${defaultProjectId}`;
                 const defaultDocRef = doc(db, docPath);
                 
                 const docSnap = await getDoc(defaultDocRef);
@@ -1069,28 +1214,89 @@
                         priorities: JSON.stringify([]),
                         createdAt: new Date().toISOString()
                     });
-                    console.log("Proyecto por defecto creado");
+                    console.log("Proyecto por defecto creado en workspace:", workspaceId);
                 }
-                
-                // Recargar lista
-                await loadProjectsList();
             } catch (error) {
                 console.error("Error al crear proyecto por defecto:", error);
             }
         }
 
-        // --- NUEVA: Cargar un proyecto específico ---
-        function loadProject(projectId) {
-            if (!projectId) return;
+        // --- NUEVA: Crear nuevo workspace ---
+        async function createNewWorkspace() {
+            const name = newWorkspaceNameInput.value.trim();
+            if (!name) {
+                showMessage("Por favor, ingresa un nombre para el espacio de trabajo");
+                return;
+            }
             
+            // Generar ID único (slug del nombre)
+            const workspaceId = name.toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '');
+            
+            if (!workspaceId) {
+                showMessage("El nombre del espacio debe contener al menos una letra o número");
+                return;
+            }
+            
+            try {
+                loadingSpinner.classList.remove('hidden');
+                loadingText.textContent = "Creando espacio de trabajo...";
+                
+                const workspacePath = `artifacts/${appId}/public/data/workspaces/${workspaceId}`;
+                const newWorkspaceRef = doc(db, workspacePath);
+                
+                // Verificar si ya existe
+                const existingDoc = await getDoc(newWorkspaceRef);
+                if (existingDoc.exists()) {
+                    showMessage("Ya existe un espacio con ese nombre. Por favor, elige otro nombre.");
+                    loadingSpinner.classList.add('hidden');
+                    return;
+                }
+                
+                // Crear workspace
+                await setDoc(newWorkspaceRef, {
+                    workspaceName: name,
+                    description: newWorkspaceDescriptionInput.value.trim() || '',
+                    createdAt: new Date().toISOString()
+                });
+                
+                console.log("Workspace creado:", workspaceId);
+                
+                // Cerrar modal y limpiar
+                newWorkspaceModal.classList.add('hidden');
+                newWorkspaceNameInput.value = '';
+                newWorkspaceDescriptionInput.value = '';
+                
+                // Recargar lista y seleccionar nuevo workspace
+                await loadWorkspacesList();
+                workspaceSelector.value = workspaceId;
+                await loadWorkspace(workspaceId);
+                
+                loadingSpinner.classList.add('hidden');
+                showMessage(`Espacio "${name}" creado exitosamente`);
+                
+            } catch (error) {
+                console.error("Error al crear workspace:", error);
+                showMessage(`Error al crear espacio: ${error.message}`);
+                loadingSpinner.classList.add('hidden');
+            }
+        }
+
+        // --- MODIFICADA: Cargar un proyecto específico dentro de un workspace ---
+        function loadProject(workspaceId, projectId) {
+            if (!workspaceId || !projectId) return;
+            
+            currentWorkspaceId = workspaceId;
             currentProjectId = projectId;
-            localStorage.setItem('lastSelectedProject', projectId);
+            localStorage.setItem('lastSelectedWorkspace', workspaceId);
+            localStorage.setItem(`lastSelectedProject_${workspaceId}`, projectId);
             
             // Mostrar botón de eliminar
             deleteProjectBtn.classList.remove('hidden');
             
             try {
-                const docPath = `artifacts/${appId}/public/data/projects/${projectId}`;
+                const docPath = `artifacts/${appId}/public/data/workspaces/${workspaceId}/projects/${projectId}`;
                 projectDocRef = doc(db, docPath);
 
                 // Escuchar cambios en tiempo real para ESE proyecto
@@ -1131,8 +1337,13 @@
             }
         }
 
-        // --- NUEVA: Crear nuevo proyecto ---
+        // --- MODIFICADA: Crear nuevo proyecto dentro del workspace actual ---
         async function createNewProject() {
+            if (!currentWorkspaceId) {
+                showMessage("Por favor, selecciona un espacio de trabajo primero");
+                return;
+            }
+            
             const name = newProjectNameInput.value.trim();
             if (!name) {
                 showMessage("Por favor, ingresa un nombre para el proyecto");
@@ -1153,13 +1364,13 @@
                 loadingSpinner.classList.remove('hidden');
                 loadingText.textContent = "Creando proyecto...";
                 
-                const docPath = `artifacts/${appId}/public/data/projects/${projectId}`;
+                const docPath = `artifacts/${appId}/public/data/workspaces/${currentWorkspaceId}/projects/${projectId}`;
                 const newProjectRef = doc(db, docPath);
                 
                 // Verificar si ya existe
                 const existingDoc = await getDoc(newProjectRef);
                 if (existingDoc.exists()) {
-                    showMessage("Ya existe un proyecto con ese nombre. Por favor, elige otro nombre.");
+                    showMessage("Ya existe un proyecto con ese nombre en este espacio. Por favor, elige otro nombre.");
                     loadingSpinner.classList.add('hidden');
                     return;
                 }
@@ -1173,7 +1384,7 @@
                     createdAt: new Date().toISOString()
                 });
                 
-                console.log("Proyecto creado:", projectId);
+                console.log("Proyecto creado:", projectId, "en workspace:", currentWorkspaceId);
                 
                 // Cerrar modal y limpiar
                 newProjectModal.classList.add('hidden');
@@ -1181,9 +1392,9 @@
                 newProjectDescriptionInput.value = '';
                 
                 // Recargar lista y seleccionar nuevo proyecto
-                await loadProjectsList();
+                await loadProjectsList(currentWorkspaceId);
                 projectSelector.value = projectId;
-                loadProject(projectId);
+                loadProject(currentWorkspaceId, projectId);
                 
                 loadingSpinner.classList.add('hidden');
                 showMessage(`Proyecto "${name}" creado exitosamente`);
@@ -1195,9 +1406,9 @@
             }
         }
 
-        // --- NUEVA: Eliminar proyecto ---
+        // --- MODIFICADA: Eliminar proyecto del workspace actual ---
         async function deleteCurrentProject() {
-            if (!currentProjectId) return;
+            if (!currentWorkspaceId || !currentProjectId) return;
             
             const projectName = projectSelector.options[projectSelector.selectedIndex]?.textContent || currentProjectId;
             
@@ -1209,19 +1420,19 @@
                 loadingSpinner.classList.remove('hidden');
                 loadingText.textContent = "Eliminando proyecto...";
                 
-                const docPath = `artifacts/${appId}/public/data/projects/${currentProjectId}`;
+                const docPath = `artifacts/${appId}/public/data/workspaces/${currentWorkspaceId}/projects/${currentProjectId}`;
                 await deleteDoc(doc(db, docPath));
                 
-                console.log("Proyecto eliminado:", currentProjectId);
+                console.log("Proyecto eliminado:", currentProjectId, "del workspace:", currentWorkspaceId);
                 
                 // Limpiar datos
                 projectData = [];
                 priorityTasks = [];
                 currentProjectId = null;
-                localStorage.removeItem('lastSelectedProject');
+                localStorage.removeItem(`lastSelectedProject_${currentWorkspaceId}`);
                 
-                // Recargar lista
-                await loadProjectsList();
+                // Recargar lista de proyectos
+                await loadProjectsList(currentWorkspaceId);
                 
                 loadingSpinner.classList.add('hidden');
                 showMessage(`Proyecto "${projectName}" eliminado exitosamente`);
@@ -1233,10 +1444,10 @@
             }
         }
 
-        // --- MODIFICADA: Inicializar sistema de proyectos ---
+        // --- MODIFICADA: Inicializar sistema de workspaces y proyectos ---
         function setupFirestoreListener() {
-            // Primero cargar lista de proyectos
-            loadProjectsList();
+            // Primero cargar lista de workspaces
+            loadWorkspacesList();
         }
         
         async function saveInitialData() {
@@ -1727,15 +1938,46 @@
         window.handlePriorityStatusClick = handlePriorityStatusClick;
         window.handlePriorityNoteClick = handlePriorityNoteClick;
 
-        // --- Event Listeners para Multi-Proyecto ---
+        // --- Event Listeners para Workspaces ---
+        workspaceSelector.onchange = (e) => {
+            const selectedWorkspaceId = e.target.value;
+            if (selectedWorkspaceId) {
+                loadWorkspace(selectedWorkspaceId);
+            }
+        };
+
+        newWorkspaceBtn.onclick = () => {
+            newWorkspaceModal.classList.remove('hidden');
+            newWorkspaceNameInput.focus();
+        };
+
+        createWorkspaceBtn.onclick = createNewWorkspace;
+        cancelNewWorkspaceBtn.onclick = () => {
+            newWorkspaceModal.classList.add('hidden');
+            newWorkspaceNameInput.value = '';
+            newWorkspaceDescriptionInput.value = '';
+        };
+
+        // Permitir crear workspace con Enter
+        newWorkspaceNameInput.onkeypress = (e) => {
+            if (e.key === 'Enter') {
+                createNewWorkspace();
+            }
+        };
+
+        // --- Event Listeners para Proyectos ---
         projectSelector.onchange = (e) => {
             const selectedProjectId = e.target.value;
-            if (selectedProjectId) {
-                loadProject(selectedProjectId);
+            if (selectedProjectId && currentWorkspaceId) {
+                loadProject(currentWorkspaceId, selectedProjectId);
             }
         };
 
         newProjectBtn.onclick = () => {
+            if (!currentWorkspaceId) {
+                showMessage("Por favor, selecciona un espacio de trabajo primero");
+                return;
+            }
             newProjectModal.classList.remove('hidden');
             newProjectNameInput.focus();
         };

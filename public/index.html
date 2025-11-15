@@ -2479,7 +2479,29 @@
                             const assignedCell = document.createElement('td');
                             assignedCell.className = 'px-2 sm:px-3 py-2 text-gray-400 text-xs sm:text-sm hidden lg:table-cell';
                             if (item.assignedTo) {
+                                // Mientras carga, mostrar el email temporalmente
                                 assignedCell.textContent = item.assignedTo;
+                                
+                                // Obtener información del usuario de forma asíncrona y actualizar
+                                getUserInfoByEmail(item.assignedTo).then(userInfo => {
+                                    if (userInfo) {
+                                        const photoHTML = userInfo.photoURL 
+                                            ? `<img src="${userInfo.photoURL}" alt="${userInfo.displayName}" class="w-5 h-5 rounded-full mr-2 flex-shrink-0 object-cover">`
+                                            : `<div class="w-5 h-5 rounded-full bg-gray-600 flex items-center justify-center text-white text-xs mr-2 flex-shrink-0">${userInfo.displayName.charAt(0).toUpperCase()}</div>`;
+                                        
+                                        assignedCell.innerHTML = `
+                                            <div class="flex items-center">
+                                                ${photoHTML}
+                                                <div class="flex flex-col min-w-0">
+                                                    <span class="text-white font-medium truncate text-xs">${userInfo.displayName}</span>
+                                                    <span class="text-gray-400 truncate text-xs">${item.assignedTo}</span>
+                                                </div>
+                                            </div>
+                                        `;
+                                    }
+                                }).catch(() => {
+                                    // Si falla, mantener el email mostrado
+                                });
                             } else {
                                 assignedCell.textContent = '-';
                             }
